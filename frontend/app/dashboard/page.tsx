@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { API_BASE, apiFetch } from "@/lib/api";
 
 type User = {
@@ -69,7 +69,7 @@ export default function DashboardPage() {
     }
   }
 
-  async function onUpload(e: React.FormEvent) {
+  async function onUpload(e: FormEvent) {
     e.preventDefault();
     if (!file || !patient) return;
 
@@ -132,7 +132,7 @@ export default function DashboardPage() {
   return (
     <main className="min-h-screen p-6">
       <div className="max-w-5xl mx-auto space-y-6">
-        <header className="flex items-center justify-between">
+        <header className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold">VitaSync Portal</h1>
             <p className="text-sm text-slate-600">
@@ -140,22 +140,75 @@ export default function DashboardPage() {
             </p>
           </div>
 
-          <div className="flex items-center gap-3">
+          <nav className="flex flex-wrap items-center gap-2">
+            <Link
+              href="/medicines"
+              className="rounded-lg border border-slate-300 px-3 py-2 text-sm hover:bg-slate-100"
+            >
+              Medicinali
+            </Link>
+
+            <Link
+              href="/therapies"
+              className="rounded-lg border border-slate-300 px-3 py-2 text-sm hover:bg-slate-100"
+            >
+              Terapie
+            </Link>
+
+            <Link
+              href="/reminders"
+              className="rounded-lg border border-slate-300 px-3 py-2 text-sm hover:bg-slate-100"
+            >
+              Promemoria
+            </Link>
+
             <Link
               href="/trend"
-              className="rounded-lg border border-slate-300 px-4 py-2 text-sm hover:bg-slate-100"
+              className="rounded-lg border border-slate-300 px-3 py-2 text-sm hover:bg-slate-100"
             >
               Trend esami
             </Link>
 
             <button
               onClick={onLogout}
-              className="rounded-lg border border-slate-300 px-4 py-2 text-sm hover:bg-slate-100"
+              className="rounded-lg border border-slate-300 px-3 py-2 text-sm hover:bg-slate-100"
             >
               Esci
             </button>
-          </div>
+          </nav>
         </header>
+
+        <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Link
+            href="/medicines"
+            className="bg-white rounded-2xl shadow p-5 hover:bg-slate-50"
+          >
+            <h2 className="font-semibold">Medicinali</h2>
+            <p className="text-sm text-slate-600 mt-1">
+              Gestisci l&apos;elenco dei farmaci conosciuti.
+            </p>
+          </Link>
+
+          <Link
+            href="/therapies"
+            className="bg-white rounded-2xl shadow p-5 hover:bg-slate-50"
+          >
+            <h2 className="font-semibold">Terapie</h2>
+            <p className="text-sm text-slate-600 mt-1">
+              Associa farmaci, dose, frequenza e stato.
+            </p>
+          </Link>
+
+          <Link
+            href="/reminders"
+            className="bg-white rounded-2xl shadow p-5 hover:bg-slate-50"
+          >
+            <h2 className="font-semibold">Promemoria</h2>
+            <p className="text-sm text-slate-600 mt-1">
+              Segna assunzioni, controlli e rinnovi.
+            </p>
+          </Link>
+        </section>
 
         <section className="bg-white rounded-2xl shadow p-6">
           <h2 className="text-lg font-semibold mb-4">Carica documento</h2>
@@ -233,9 +286,10 @@ export default function DashboardPage() {
         <section className="bg-white rounded-2xl shadow p-6">
           <h2 className="text-lg font-semibold mb-2">Prossimi step</h2>
           <ul className="list-disc pl-5 text-sm text-slate-700 space-y-1">
-            <li>Estrazione OCR/parsing referti immagini.</li>
-            <li>Caricamento ricette e collegamento terapia.</li>
-            <li>Reminder farmaci, ritiri e controlli.</li>
+            <li>Notifiche email/push per promemoria.</li>
+            <li>Ricorrenze avanzate.</li>
+            <li>OCR immagini/referti scansionati.</li>
+            <li>Collegamento ricetta -> terapia.</li>
             <li>Report PDF per il consulto medico.</li>
           </ul>
         </section>
