@@ -140,12 +140,21 @@ export default function DashboardPage() {
             </p>
           </div>
 
-          <button
-            onClick={onLogout}
-            className="rounded-lg border border-slate-300 px-4 py-2 text-sm hover:bg-slate-100"
-          >
-            Esci
-          </button>
+          <div className="flex items-center gap-3">
+            <Link
+              href="/trend"
+              className="rounded-lg border border-slate-300 px-4 py-2 text-sm hover:bg-slate-100"
+            >
+              Trend esami
+            </Link>
+
+            <button
+              onClick={onLogout}
+              className="rounded-lg border border-slate-300 px-4 py-2 text-sm hover:bg-slate-100"
+            >
+              Esci
+            </button>
+          </div>
         </header>
 
         <section className="bg-white rounded-2xl shadow p-6">
@@ -225,7 +234,6 @@ export default function DashboardPage() {
           <h2 className="text-lg font-semibold mb-2">Prossimi step</h2>
           <ul className="list-disc pl-5 text-sm text-slate-700 space-y-1">
             <li>Estrazione OCR/parsing referti immagini.</li>
-            <li>Trend storici esami.</li>
             <li>Caricamento ricette e collegamento terapia.</li>
             <li>Reminder farmaci, ritiri e controlli.</li>
             <li>Report PDF per il consulto medico.</li>

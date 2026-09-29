@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict
 
 
 class LabTestOut(BaseModel):
@@ -46,3 +46,38 @@ class LabTestUpdate(BaseModel):
 class ConfirmAllResponse(BaseModel):
     updated_count: int
     detail: str
+
+
+class TrendPoint(BaseModel):
+    date: date | None
+    value_numeric: float | None
+    value_text: str | None
+    unit: str | None
+    reference_min: float | None
+    reference_max: float | None
+    flag: str | None
+    document_id: UUID
+    document_title: str
+    test_name_normalized: str
+    confirmed_by_user: bool
+    user_corrected: bool
+    created_at: datetime
+
+
+class TrendResponse(BaseModel):
+    patient_id: UUID
+    test_code: str
+    test_name_normalized: str | None
+    unit: str | None
+    points: list[TrendPoint]
+
+
+class LabTestCodeSummary(BaseModel):
+    test_code: str
+    test_name_normalized: str
+    last_value_numeric: float | None
+    last_value_text: str | None
+    last_unit: str | None
+    last_flag: str | None
+    last_date: date | None
+    points_count: int
