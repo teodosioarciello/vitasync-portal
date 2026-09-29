@@ -1,13 +1,10 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { apiFetch } from "@/lib/api";
 
 export default function RegisterPage() {
-  const router = useRouter();
-
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -139,7 +136,7 @@ export default function RegisterPage() {
             />
             <span>
               Ho letto e accetto l&apos;informativa privacy e acconsento al
-              trattamento dei dati sanitari per le finalità del servizio.
+              trattamento dei dati sanitari per le finalita del servizio.
             </span>
           </label>
 
@@ -192,7 +189,7 @@ export default function RegisterPage() {
         </form>
 
         <div className="mt-6 text-sm">
-          Hai già un account?{" "}
+          Hai gia un account?{" "}
           <Link href="/login" className="text-blue-700 hover:underline">
             Accedi
           </Link>

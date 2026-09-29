@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import auth, documents, patients
+from app.api import auth, documents, lab_tests, patients
 from app.core.config import settings
 from app.db import models  # noqa: F401
 from app.db.session import Base, engine
@@ -54,6 +54,7 @@ app.add_middleware(
 app.include_router(auth.router)
 app.include_router(patients.router)
 app.include_router(documents.router)
+app.include_router(lab_tests.router)
 
 
 @app.get("/health")
@@ -64,4 +65,5 @@ def health():
         "environment": settings.environment,
         "ai_enabled": settings.ai_enabled,
         "storage_backend": settings.storage_backend,
+        "extraction": "pdf-local-v1",
     }

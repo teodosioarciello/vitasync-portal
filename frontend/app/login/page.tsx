@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -86,7 +86,7 @@ export default function LoginPage() {
         </div>
 
         <div className="mt-6 text-xs text-slate-500 border-t pt-4">
-          VitaSync Portal è uno strumento di organizzazione personale/familiare.
+          VitaSync Portal e&apos; uno strumento di organizzazione personale/familiare.
           Non formula diagnosi e non sostituisce il parere medico.
         </div>
       </div>

@@ -1,4 +1,4 @@
-# Python
+﻿# Python
 __pycache__/
 *.py[cod]
 *.egg-info/
@@ -14,9 +14,7 @@ dist/
 
 # Docker / local data
 pgdata/
-miniodata/
-caddy_data/
-caddy_config/
+data/
 
 # OS
 .DS_Store
@@ -25,6 +23,3 @@ Thumbs.db
 # IDE
 .vscode/
 .idea/
-
-# Local development data
-data/

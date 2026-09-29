@@ -1,4 +1,4 @@
-from pydantic_settings import BaseSettings, SettingsConfigDict
+﻿from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -16,8 +16,8 @@ class Settings(BaseSettings):
     )
     redis_url: str = "redis://redis:6379/0"
 
-    cors_origins: str = "http://localhost:3000"
-    frontend_url: str = "http://localhost:3000"
+    cors_origins: str = "http://localhost:3001"
+    frontend_url: str = "http://localhost:3001"
 
     session_cookie_name: str = "vitasync_session"
     session_expire_days: int = 7
@@ -34,14 +34,14 @@ class Settings(BaseSettings):
     smtp_password: str | None = None
     smtp_from: str = "noreply@vitasync.local"
 
+    storage_backend: str = "local"
+    local_storage_path: str = "./data/documents"
+
     minio_endpoint: str = "minio:9000"
     minio_access_key: str = "minioadmin"
     minio_secret_key: str = "minioadmin_dev_password"
     minio_bucket: str = "vitasync-documents"
     minio_secure: bool = False
-
-    storage_backend: str = "local"
-    local_storage_path: str = "./data/documents"
 
     max_upload_mb: int = 20
     allowed_mime_types: str = "application/pdf,image/jpeg,image/png,image/heic"

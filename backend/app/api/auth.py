@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+﻿from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy import or_
@@ -98,7 +98,7 @@ def register(
     if existing_user:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Username o email già registrati.",
+            detail="Username o email gia registrati.",
         )
 
     now = datetime.now(timezone.utc)
@@ -300,9 +300,8 @@ def password_reset_request(
         )
         send_password_reset_email(user.email, reset_url)
 
-    # Risposta neutra per non rivelare se l'email esiste.
     return MessageResponse(
-        detail="Se l'email è registrata, riceverai un link per reimpostare la password."
+        detail="Se l'email e registrata, riceverai un link per reimpostare la password."
     )
 
 
@@ -341,7 +340,6 @@ def password_reset_confirm(
     user.password_hash = hash_password(payload.new_password)
     reset_token.used_at = now
 
-    # Invalida tutte le sessioni esistenti.
     db.query(SessionModel).filter(SessionModel.user_id == user.id).delete()
 
     db.commit()

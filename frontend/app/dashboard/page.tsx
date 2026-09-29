@@ -19,7 +19,7 @@ type Patient = {
   relationship_to_owner: string;
 };
 
-type Document = {
+type DocumentItem = {
   id: string;
   title: string;
   document_type: string;
@@ -31,7 +31,7 @@ export default function DashboardPage() {
 
   const [user, setUser] = useState<User | null>(null);
   const [patient, setPatient] = useState<Patient | null>(null);
-  const [documents, setDocuments] = useState<Document[]>([]);
+  const [documents, setDocuments] = useState<DocumentItem[]>([]);
   const [file, setFile] = useState<File | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -46,7 +46,7 @@ export default function DashboardPage() {
         const myPatient = await apiFetch<Patient>("/api/patients/me");
         setPatient(myPatient);
 
-        const docs = await apiFetch<Document[]>(
+        const docs = await apiFetch<DocumentItem[]>(
           `/api/documents?patient_id=${myPatient.id}`
         );
         setDocuments(docs);
@@ -80,6 +80,7 @@ export default function DashboardPage() {
       const formData = new FormData();
       formData.append("title", file.name);
       formData.append("document_type", "lab_report");
+      formData.append("file", file);
 
       const res = await fetch(
         `${API_BASE}/api/documents/upload?patient_id=${patient.id}`,
@@ -90,17 +91,34 @@ export default function DashboardPage() {
         }
       );
 
-      const data = await res.json().catch(() => null);
+      const rawText = await res.text();
+
+      let data: any = null;
+      try {
+        data = rawText ? JSON.parse(rawText) : null;
+      } catch {
+        data = null;
+      }
 
       if (!res.ok) {
-        throw new Error(data?.detail || "Upload fallito.");
+        let detail = data?.detail ?? rawText ?? `Errore ${res.status}`;
+
+        if (Array.isArray(detail)) {
+          detail = detail
+            .map((d: any) => `${(d.loc || []).join(".")}: ${d.msg}`)
+            .join(" | ");
+        }
+
+        console.error("Errore upload:", res.status, data);
+        throw new Error(String(detail));
       }
 
       setMessage(`Documento caricato: ${data.title}`);
 
-      const docs = await apiFetch<Document[]>(
+      const docs = await apiFetch<DocumentItem[]>(
         `/api/documents?patient_id=${patient.id}`
       );
+
       setDocuments(docs);
       setFile(null);
     } catch (err: any) {
@@ -183,7 +201,7 @@ export default function DashboardPage() {
                   <div>
                     <p className="font-medium">{doc.title}</p>
                     <p className="text-xs text-slate-500">
-                      {doc.document_type} • {doc.processing_status}
+                      {doc.document_type} - {doc.processing_status}
                     </p>
                   </div>
 
@@ -209,7 +227,7 @@ export default function DashboardPage() {
         </section>
 
         <footer className="text-xs text-slate-500">
-          VitaSync Portal è uno strumento di organizzazione personale/familiare.
+          VitaSync Portal e&apos; uno strumento di organizzazione personale/familiare.
           Non formula diagnosi, non prescrive terapie e non sostituisce il parere
           medico.
         </footer>

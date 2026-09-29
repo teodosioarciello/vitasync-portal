@@ -4,7 +4,6 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
-from app.core.config import settings
 from app.db.models import (
     Document,
     FamilyMember,
@@ -14,6 +13,8 @@ from app.db.models import (
 )
 from app.deps import get_current_user, get_db
 from app.schemas.document import DocumentOut
+from app.schemas.lab_test import LabTestOut
+from app.services.extraction import extract_from_document
 from app.services.family import ensure_family_and_self_patient
 from app.services.storage import save_document
 
@@ -76,12 +77,7 @@ def get_authorized_patient(
     )
 
     if member:
-        if required_permission == "read" and member.role in {
-            "owner",
-            "admin",
-            "member",
-            "viewer",
-        }:
+        if required_permission == "read" and member.role in {"owner", "admin", "member", "viewer"}:
             return patient
         if required_permission == "write" and member.role in {"owner", "admin", "member"}:
             return patient
@@ -144,3 +140,42 @@ def list_documents(
     )
 
     return [DocumentOut.model_validate(doc) for doc in documents]
+
+
+@router.post("/{document_id}/extract", response_model=list[LabTestOut])
+def extract_document(
+    document_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    document = db.get(Document, document_id)
+    if not document:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Documento non trovato.",
+        )
+
+    # autorizzazione: chi può leggere il paziente può estrarre
+    get_authorized_patient(document.patient_id, current_user, db, required_permission="read")
+
+    try:
+        created = extract_from_document(db, document)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        )
+    except FileNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(exc),
+        )
+    except Exception as exc:  # noqa: BLE001
+        document.processing_status = "failed"
+        db.commit()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Estrazione fallita: {exc}",
+        )
+
+    return [LabTestOut.model_validate(lt) for lt in created]

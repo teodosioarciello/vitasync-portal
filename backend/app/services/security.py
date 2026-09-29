@@ -1,4 +1,4 @@
-import hashlib
+﻿import hashlib
 import secrets
 
 from argon2 import PasswordHasher
