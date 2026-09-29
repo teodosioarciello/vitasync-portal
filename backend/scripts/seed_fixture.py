@@ -5,6 +5,12 @@ crea una riga Document nel DB e lancia l'estrazione.
 Da eseguire dentro il container backend:
     docker compose exec backend python scripts/seed_fixture.py
 """
+import sys
+from pathlib import Path
+
+BASE_DIR = Path(__file__).resolve().parents[1]
+if str(BASE_DIR) not in sys.path:
+    sys.path.insert(0, str(BASE_DIR))
 import hashlib
 import os
 from datetime import date
