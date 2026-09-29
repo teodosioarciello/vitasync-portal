@@ -13,12 +13,14 @@ def derive_action(method: str, path: str) -> str | None:
     """
     if method == "GET":
         return None
+
     if path.startswith("/api/auth/login"):
         return "auth.login"
     if path.startswith("/api/auth/register"):
         return "auth.register"
     if path.startswith("/api/auth/logout"):
         return "auth.logout"
+
     if path.startswith("/api/documents/upload"):
         return "document.upload"
     if "/extract" in path:
@@ -29,6 +31,27 @@ def derive_action(method: str, path: str) -> str | None:
         return "lab_test.update"
     if path.startswith("/api/documents") and method == "DELETE":
         return "document.delete"
+
+    if path.startswith("/api/medicines"):
+        if method == "POST":
+            return "medicine.create"
+        if method == "PATCH":
+            return "medicine.update"
+        if method == "DELETE":
+            return "medicine.delete"
+
+    if path.startswith("/api/therapies"):
+        if method == "POST":
+            return "therapy.create"
+        if method == "PATCH":
+            return "therapy.update"
+
+    if path.startswith("/api/reminders"):
+        if method == "POST":
+            return "reminder.create"
+        if method == "PATCH":
+            return "reminder.update"
+
     return None
 
 

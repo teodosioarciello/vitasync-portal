@@ -5,10 +5,19 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from app.api import auth, documents, lab_tests, patients
+from app.api import (
+    auth,
+    documents,
+    lab_tests,
+    medicines,
+    patients,
+    reminders,
+    therapies,
+)
 from app.core.config import settings
 from app.db import audit_models  # noqa: F401  (registra AuditLog su Base.metadata)
 from app.db import models  # noqa: F401
+from app.db import therapy_models  # noqa: F401  (registra Medicine/Therapy/Reminder)
 from app.db.session import Base, engine
 from app.services.audit import derive_action, record_audit
 from app.services.ratelimit import check_rate_limit
@@ -179,6 +188,9 @@ app.include_router(auth.router)
 app.include_router(patients.router)
 app.include_router(documents.router)
 app.include_router(lab_tests.router)
+app.include_router(medicines.router)
+app.include_router(therapies.router)
+app.include_router(reminders.router)
 
 
 @app.get("/health")
@@ -191,4 +203,5 @@ def health():
         "storage_backend": settings.storage_backend,
         "extraction": "pdf-local-v1",
         "hardening": "lite-v1",
+        "therapy": "b1-v1",
     }
