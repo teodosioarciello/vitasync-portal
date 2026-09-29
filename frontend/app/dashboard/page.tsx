@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { API_BASE, apiFetch } from "@/lib/api";
@@ -197,7 +198,10 @@ export default function DashboardPage() {
           ) : (
             <ul className="divide-y divide-slate-200">
               {documents.map((doc) => (
-                <li key={doc.id} className="py-3 flex items-center justify-between">
+                <li
+                  key={doc.id}
+                  className="py-3 flex items-center justify-between"
+                >
                   <div>
                     <p className="font-medium">{doc.title}</p>
                     <p className="text-xs text-slate-500">
@@ -205,9 +209,12 @@ export default function DashboardPage() {
                     </p>
                   </div>
 
-                  <span className="text-xs uppercase tracking-wide text-slate-500">
-                    bozza
-                  </span>
+                  <Link
+                    href={`/documents/${doc.id}/review`}
+                    className="rounded-lg border border-slate-300 px-3 py-1 text-xs font-medium hover:bg-slate-100"
+                  >
+                    Review
+                  </Link>
                 </li>
               ))}
             </ul>
@@ -217,8 +224,7 @@ export default function DashboardPage() {
         <section className="bg-white rounded-2xl shadow p-6">
           <h2 className="text-lg font-semibold mb-2">Prossimi step</h2>
           <ul className="list-disc pl-5 text-sm text-slate-700 space-y-1">
-            <li>Estrazione OCR/parsing referti.</li>
-            <li>Review valori estratti e conferma utente.</li>
+            <li>Estrazione OCR/parsing referti immagini.</li>
             <li>Trend storici esami.</li>
             <li>Caricamento ricette e collegamento terapia.</li>
             <li>Reminder farmaci, ritiri e controlli.</li>
@@ -227,9 +233,9 @@ export default function DashboardPage() {
         </section>
 
         <footer className="text-xs text-slate-500">
-          VitaSync Portal e&apos; uno strumento di organizzazione personale/familiare.
-          Non formula diagnosi, non prescrive terapie e non sostituisce il parere
-          medico.
+          VitaSync Portal e&apos; uno strumento di organizzazione
+          personale/familiare. Non formula diagnosi, non prescrive terapie e non
+          sostituisce il parere medico.
         </footer>
       </div>
     </main>

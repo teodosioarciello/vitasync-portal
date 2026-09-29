@@ -7,13 +7,14 @@ from sqlalchemy.orm import Session
 from app.db.models import (
     Document,
     FamilyMember,
+    LabTest,
     Patient,
     PatientAccessGrant,
     User,
 )
 from app.deps import get_current_user, get_db
 from app.schemas.document import DocumentOut
-from app.schemas.lab_test import LabTestOut
+from app.schemas.lab_test import ConfirmAllResponse, LabTestOut
 from app.services.extraction import extract_from_document
 from app.services.family import ensure_family_and_self_patient
 from app.services.storage import save_document
@@ -142,6 +143,23 @@ def list_documents(
     return [DocumentOut.model_validate(doc) for doc in documents]
 
 
+@router.get("/{document_id}", response_model=DocumentOut)
+def get_document(
+    document_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    document = db.get(Document, document_id)
+    if not document:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Documento non trovato.",
+        )
+
+    get_authorized_patient(document.patient_id, current_user, db, required_permission="read")
+    return DocumentOut.model_validate(document)
+
+
 @router.post("/{document_id}/extract", response_model=list[LabTestOut])
 def extract_document(
     document_id: UUID,
@@ -155,7 +173,6 @@ def extract_document(
             detail="Documento non trovato.",
         )
 
-    # autorizzazione: chi può leggere il paziente può estrarre
     get_authorized_patient(document.patient_id, current_user, db, required_permission="read")
 
     try:
@@ -179,3 +196,34 @@ def extract_document(
         )
 
     return [LabTestOut.model_validate(lt) for lt in created]
+
+
+@router.post("/{document_id}/lab-tests/confirm-all", response_model=ConfirmAllResponse)
+def confirm_all_lab_tests(
+    document_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    document = db.get(Document, document_id)
+    if not document:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Documento non trovato.",
+        )
+
+    get_authorized_patient(document.patient_id, current_user, db, required_permission="write")
+
+    count = (
+        db.query(LabTest)
+        .filter(
+            LabTest.document_id == document_id,
+            LabTest.confirmed_by_user.is_(False),
+        )
+        .update({"confirmed_by_user": True}, synchronize_session=False)
+    )
+    db.commit()
+
+    return ConfirmAllResponse(
+        updated_count=count,
+        detail=f"Confermati {count} valori estratti.",
+    )

@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class LabTestOut(BaseModel):
@@ -30,3 +30,19 @@ class LabTestOut(BaseModel):
     user_corrected: bool
     notes: str | None
     created_at: datetime
+
+
+class LabTestUpdate(BaseModel):
+    value_numeric: float | None = None
+    value_text: str | None = None
+    unit: str | None = None
+    reference_min: float | None = None
+    reference_max: float | None = None
+    reference_text: str | None = None
+    notes: str | None = None
+    confirmed: bool = False
+
+
+class ConfirmAllResponse(BaseModel):
+    updated_count: int
+    detail: str
