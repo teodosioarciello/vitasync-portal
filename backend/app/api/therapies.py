@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.orm import Session
 
 from app.api.documents import get_authorized_patient
@@ -14,6 +14,7 @@ from app.schemas.therapy import (
     TherapyOut,
     TherapyUpdate,
 )
+from app.services.audit_identity import mark_audit_user
 from app.services.family import ensure_family_and_self_patient
 from app.services.therapy import (
     get_authorized_therapy,
@@ -56,10 +57,13 @@ def list_therapies(
 
 @router.post("", response_model=TherapyOut)
 def create_therapy(
+    request: Request,
     payload: TherapyCreate,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    mark_audit_user(request, current_user.id)
+
     patient = get_authorized_patient(
         payload.patient_id, current_user, db, required_permission="write"
     )
@@ -124,11 +128,14 @@ def get_therapy(
 
 @router.patch("/{therapy_id}", response_model=TherapyOut)
 def update_therapy(
+    request: Request,
     therapy_id: UUID,
     payload: TherapyUpdate,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    mark_audit_user(request, current_user.id)
+
     therapy = get_authorized_therapy(
         therapy_id, current_user, db, required_permission="write"
     )

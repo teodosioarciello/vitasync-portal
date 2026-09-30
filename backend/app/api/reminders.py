@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.orm import Session
 
 from app.api.documents import get_authorized_patient
@@ -15,6 +15,7 @@ from app.schemas.therapy import (
     ReminderOut,
     ReminderUpdate,
 )
+from app.services.audit_identity import mark_audit_user
 from app.services.family import ensure_family_and_self_patient
 from app.services.therapy import (
     ensure_tz,
@@ -66,10 +67,13 @@ def list_reminders(
 
 @router.post("", response_model=ReminderOut)
 def create_reminder(
+    request: Request,
     payload: ReminderCreate,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    mark_audit_user(request, current_user.id)
+
     patient = get_authorized_patient(
         payload.patient_id, current_user, db, required_permission="write"
     )
@@ -146,11 +150,14 @@ def get_reminder(
 
 @router.patch("/{reminder_id}", response_model=ReminderOut)
 def update_reminder(
+    request: Request,
     reminder_id: UUID,
     payload: ReminderUpdate,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    mark_audit_user(request, current_user.id)
+
     reminder = get_authorized_reminder(
         reminder_id, current_user, db, required_permission="write"
     )

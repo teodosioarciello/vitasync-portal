@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.orm import Session
 
 from app.api.documents import get_authorized_patient
@@ -9,6 +9,7 @@ from app.db.therapy_models import Medicine, Therapy
 from app.deps import get_current_user, get_db
 from app.schemas.auth import MessageResponse
 from app.schemas.therapy import MedicineCreate, MedicineOut, MedicineUpdate
+from app.services.audit_identity import mark_audit_user
 from app.services.family import ensure_family_and_self_patient
 from app.services.therapy import get_authorized_medicine
 
@@ -40,10 +41,13 @@ def list_medicines(
 
 @router.post("", response_model=MedicineOut)
 def create_medicine(
+    request: Request,
     payload: MedicineCreate,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    mark_audit_user(request, current_user.id)
+
     patient = get_authorized_patient(
         payload.patient_id, current_user, db, required_permission="write"
     )
@@ -86,11 +90,14 @@ def get_medicine(
 
 @router.patch("/{medicine_id}", response_model=MedicineOut)
 def update_medicine(
+    request: Request,
     medicine_id: UUID,
     payload: MedicineUpdate,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    mark_audit_user(request, current_user.id)
+
     medicine = get_authorized_medicine(
         medicine_id, current_user, db, required_permission="write"
     )
@@ -116,10 +123,13 @@ def update_medicine(
 
 @router.delete("/{medicine_id}", response_model=MessageResponse)
 def delete_medicine(
+    request: Request,
     medicine_id: UUID,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    mark_audit_user(request, current_user.id)
+
     medicine = get_authorized_medicine(
         medicine_id, current_user, db, required_permission="write"
     )
