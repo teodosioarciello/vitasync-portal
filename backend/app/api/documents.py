@@ -13,8 +13,10 @@ from app.db.models import (
     User,
 )
 from app.deps import get_current_user, get_db
+from app.schemas.auth import MessageResponse
 from app.schemas.document import DocumentOut
 from app.schemas.lab_test import ConfirmAllResponse, LabTestOut
+from app.services.document_delete import delete_document_and_file
 from app.services.extraction import extract_from_document
 from app.services.family import ensure_family_and_self_patient
 from app.services.storage import save_document
@@ -260,3 +262,43 @@ def confirm_all_lab_tests(
         updated_count=count,
         detail=f"Confermati {count} valori estratti.",
     )
+
+
+@router.delete("/{document_id}", response_model=MessageResponse)
+def delete_document(
+    document_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    document = db.get(Document, document_id)
+    if not document:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Documento non trovato.",
+        )
+
+    get_authorized_patient(
+        document.patient_id,
+        current_user,
+        db,
+        required_permission="write",
+    )
+
+    try:
+        deleted_file = delete_document_and_file(db, document)
+    except HTTPException:
+        raise
+    except Exception as exc:  # noqa: BLE001
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Eliminazione documento fallita: {exc}",
+        )
+
+    detail = "Documento eliminato."
+    if deleted_file:
+        detail += " File rimosso dallo storage."
+    else:
+        detail += " File gia' assente nello storage."
+
+    return MessageResponse(detail=detail)
