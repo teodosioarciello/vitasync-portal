@@ -1,9 +1,12 @@
 import logging
+from uuid import UUID
 
 from app.db.audit_models import AuditLog
 from app.db.session import SessionLocal
 
 logger = logging.getLogger(__name__)
+
+AUDIT_VERSION = "identity-v1"
 
 
 def derive_action(method: str, path: str) -> str | None:
@@ -55,6 +58,19 @@ def derive_action(method: str, path: str) -> str | None:
     return None
 
 
+def _coerce_user_id(user_id) -> UUID | None:
+    if user_id is None:
+        return None
+
+    if isinstance(user_id, UUID):
+        return user_id
+
+    try:
+        return UUID(str(user_id))
+    except Exception:
+        return None
+
+
 def record_audit(
     action: str | None,
     method: str,
@@ -68,6 +84,7 @@ def record_audit(
     """
     Scrive una riga di audit. Non fa MAI fallire la richiesta: ogni errore
     viene inghiottito e loggato. Apre/chiude la propria sessione DB.
+
     NB: sync dentro contesto async - accettabile in dev; in prod valutare
     threadpool/queue.
     """
@@ -81,7 +98,7 @@ def record_audit(
             status_code=status_code,
             ip_address=ip_address,
             user_agent=(user_agent[:512] if user_agent else None),
-            user_id=user_id,
+            user_id=_coerce_user_id(user_id),
             extra=extra,
         )
         db.add(row)

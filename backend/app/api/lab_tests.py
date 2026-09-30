@@ -2,7 +2,7 @@ from collections import defaultdict
 from datetime import date, datetime, timezone
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.orm import Session
 
 from app.db.models import Document, LabTest, Patient, User
@@ -14,6 +14,7 @@ from app.schemas.lab_test import (
     TrendPoint,
     TrendResponse,
 )
+from app.services.audit_identity import mark_audit_user
 from app.services.extraction import compute_flag
 from app.services.family import ensure_family_and_self_patient
 
@@ -79,11 +80,14 @@ def list_lab_tests(
 
 @router.patch("/{lab_test_id}", response_model=LabTestOut)
 def patch_lab_test(
+    request: Request,
     lab_test_id: UUID,
     payload: LabTestUpdate,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    mark_audit_user(request, current_user.id)
+
     lt = db.get(LabTest, lab_test_id)
     if not lt:
         raise HTTPException(

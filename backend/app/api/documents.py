@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, status
 from sqlalchemy.orm import Session
 
 from app.db.models import (
@@ -16,6 +16,7 @@ from app.deps import get_current_user, get_db
 from app.schemas.auth import MessageResponse
 from app.schemas.document import DocumentOut
 from app.schemas.lab_test import ConfirmAllResponse, LabTestOut
+from app.services.audit_identity import mark_audit_user
 from app.services.document_delete import delete_document_and_file
 from app.services.extraction import extract_from_document
 from app.services.family import ensure_family_and_self_patient
@@ -96,6 +97,7 @@ def get_authorized_patient(
 
 @router.post("/upload", response_model=DocumentOut)
 async def upload_document(
+    request: Request,
     patient_id: UUID = Query(...),
     title: str = Form(...),
     document_type: str = Form(...),
@@ -103,6 +105,8 @@ async def upload_document(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    mark_audit_user(request, current_user.id)
+
     if document_type not in ALLOWED_DOCUMENT_TYPES:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -187,10 +191,13 @@ def get_document(
 
 @router.post("/{document_id}/extract", response_model=list[LabTestOut])
 def extract_document(
+    request: Request,
     document_id: UUID,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    mark_audit_user(request, current_user.id)
+
     document = db.get(Document, document_id)
     if not document:
         raise HTTPException(
@@ -230,10 +237,13 @@ def extract_document(
 
 @router.post("/{document_id}/lab-tests/confirm-all", response_model=ConfirmAllResponse)
 def confirm_all_lab_tests(
+    request: Request,
     document_id: UUID,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    mark_audit_user(request, current_user.id)
+
     document = db.get(Document, document_id)
     if not document:
         raise HTTPException(
@@ -266,10 +276,13 @@ def confirm_all_lab_tests(
 
 @router.delete("/{document_id}", response_model=MessageResponse)
 def delete_document(
+    request: Request,
     document_id: UUID,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    mark_audit_user(request, current_user.id)
+
     document = db.get(Document, document_id)
     if not document:
         raise HTTPException(

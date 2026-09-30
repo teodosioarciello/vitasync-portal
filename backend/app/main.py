@@ -20,6 +20,7 @@ from app.db import models  # noqa: F401
 from app.db import therapy_models  # noqa: F401  (registra Medicine/Therapy/Reminder)
 from app.db.session import Base, engine
 from app.services.audit import derive_action, record_audit
+from app.services.audit_identity import get_audit_user_id
 from app.services.ratelimit import check_rate_limit
 from app.services.storage import ensure_bucket, ensure_local_storage
 
@@ -130,6 +131,7 @@ async def audit_middleware(request: Request, call_next):
 
     client_ip = request.client.host if request.client else None
     user_agent = request.headers.get("user-agent")
+    user_id = get_audit_user_id(request)
 
     record_audit(
         action=action,
@@ -138,6 +140,7 @@ async def audit_middleware(request: Request, call_next):
         status_code=status_code,
         ip_address=client_ip,
         user_agent=user_agent,
+        user_id=user_id,
     )
     return response
 
@@ -204,4 +207,5 @@ def health():
         "extraction": "pdf-local-v1",
         "hardening": "lite-v1",
         "therapy": "b1-v1",
+        "audit": "identity-v1",
     }
