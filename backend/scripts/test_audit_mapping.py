@@ -1,7 +1,7 @@
 """
-Test deterministico Sprint C-media Step 5.
+Test deterministico Sprint C-media Step 5/5b.
 Verifica che derive_action mappi correttamente le azioni sensibili
-di medicinali, terapie e promemoria.
+di documenti, lab-test, medicinali, terapie, promemoria e auth.
 
 Da eseguire dentro il container backend:
     docker compose exec backend python scripts/test_audit_mapping.py
@@ -33,6 +33,10 @@ CASES = [
     ("POST", "/api/documents/123/extract", "document.extract"),
     ("POST", "/api/documents/123/lab-tests/confirm-all", "lab_test.confirm_all"),
     ("PATCH", "/api/lab-tests/123", "lab_test.update"),
+    ("POST", "/api/auth/login", "auth.login"),
+    ("POST", "/api/auth/logout", "auth.logout"),
+    ("POST", "/api/auth/register", "auth.register"),
+    ("GET", "/api/auth/me", None),
 ]
 
 

@@ -1,4 +1,4 @@
-﻿from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy import or_
@@ -21,6 +21,7 @@ from app.schemas.auth import (
     RegisterResponse,
     UserOut,
 )
+from app.services.audit_identity import mark_audit_user
 from app.services.email import send_password_reset_email, send_verification_email
 from app.services.family import ensure_family_and_self_patient
 from app.services.security import (
@@ -145,6 +146,8 @@ def register(
     db.commit()
     db.refresh(user)
 
+    mark_audit_user(request, user.id)
+
     return RegisterResponse(
         user=UserOut.model_validate(user),
         verification_required=settings.email_verification_required and not user.email_verified,
@@ -235,6 +238,8 @@ def login(
     raw_token = _create_session(db, user, request)
     _set_session_cookie(response, raw_token)
 
+    mark_audit_user(request, user.id)
+
     ensure_family_and_self_patient(db, user)
 
     return UserOut.model_validate(user)
@@ -256,6 +261,7 @@ def logout(
             .first()
         )
         if session:
+            mark_audit_user(request, session.user_id)
             db.delete(session)
             db.commit()
 
