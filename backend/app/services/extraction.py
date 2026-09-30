@@ -1,34 +1,61 @@
-import hashlib
 import logging
 import re
-from datetime import date
 from pathlib import Path
 
-import fitz  # PyMuPDF
+import fitz
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.db.models import Document, LabTest
+from app.services.ocr import (
+    extract_text_from_image,
+    extract_text_from_pdf_with_ocr,
+    is_supported_image_mime,
+)
 
 logger = logging.getLogger(__name__)
 
 LOCAL_STORAGE_ROOT = Path(settings.local_storage_path)
 
-# Parole di stato (valori non numerici) riconosciute come "valore"
 STATUS_WORDS = {
-    "negativo", "positivo", "reattivo", "non reattivo",
-    "assente", "presente", "normale", "alterato",
+    "negativo",
+    "positivo",
+    "reattivo",
+    "non reattivo",
+    "assente",
+    "presente",
+    "normale",
+    "alterato",
 }
 
-# Unità note (per euristicare il token unità)
 UNIT_HINTS = {
-    "mg/dl", "mg/l", "mmol/l", "umol/l", "g/l", "g/dl",
-    "u/l", "miu/l", "uiu/ml", "ng/ml", "pg/ml", "ug/l",
-    "ml/min", "ml/min/1.73", "10^3/ul", "10*3/ul", "k/ul",
-    "mcm", "fl", "pg", "%", "g", "mg", "meq/l", "mmhg",
+    "mg/dl",
+    "mg/l",
+    "mmol/l",
+    "umol/l",
+    "g/l",
+    "g/dl",
+    "u/l",
+    "miu/l",
+    "uiu/ml",
+    "ng/ml",
+    "pg/ml",
+    "ug/l",
+    "ml/min",
+    "ml/min/1.73",
+    "10^3/ul",
+    "10*3/ul",
+    "k/ul",
+    "mcm",
+    "fl",
+    "pg",
+    "%",
+    "g",
+    "mg",
+    "meq/l",
+    "mmhg",
 }
 
-# chiave normalizzata (UPPER, solo alnum+spazio) -> (test_code, display_name)
 EXAM_SYNONYMS = {
     "GLUCOSIO": ("glucose", "Glucosio"),
     "GLICEMIA": ("glucose", "Glucosio"),
@@ -55,6 +82,7 @@ EXAM_SYNONYMS = {
     "HDL": ("hdl", "Colesterolo HDL"),
     "TRIGLICERIDI": ("triglycerides", "Trigliceridi"),
     "HBA1C": ("hba1c", "Emoglobina glicata"),
+    "HBALC": ("hba1c", "Emoglobina glicata"),
     "EMOGLOBINA GLICATA": ("hba1c", "Emoglobina glicata"),
     "EMOGLOBINA": ("hemoglobin", "Emoglobina"),
     "HB": ("hemoglobin", "Emoglobina"),
@@ -103,12 +131,10 @@ def _title(raw: str) -> str:
 
 
 def normalize_exam_name(raw: str) -> tuple[str, str, float]:
-    """Ritorna (test_code, test_name_normalized, confidence_base)."""
     key = _normalize_key(raw)
     if key in EXAM_SYNONYMS:
         code, display = EXAM_SYNONYMS[key]
         return code, display, 0.9
-    # fallback: non riconosciuto, ma lo salviamo comunque con confidenza bassa
     return _slug(raw), _title(raw), 0.5
 
 
@@ -140,20 +166,26 @@ def parse_reference(range_str: str) -> tuple[float | None, float | None, str | N
     rs = (range_str or "").strip()
     if not rs:
         return None, None, None
+
     m = _RANGE_DASH_RE.match(rs)
     if m:
         return _to_float(m.group(1)), _to_float(m.group(2)), rs
+
     m = _RANGE_LT_RE.match(rs)
     if m:
         return None, _to_float(m.group(1)), rs
+
     m = _RANGE_GT_RE.match(rs)
     if m:
         return _to_float(m.group(1)), None, rs
+
     return None, None, rs
 
 
 def compute_flag(
-    value_num: float | None, rmin: float | None, rmax: float | None
+    value_num: float | None,
+    rmin: float | None,
+    rmax: float | None,
 ) -> str | None:
     if value_num is None:
         return "unknown"
@@ -170,7 +202,7 @@ def looks_like_unit(token: str) -> bool:
     t = token.lower().strip()
     if t in UNIT_HINTS:
         return True
-    if "/" in t or "µ" in t or "μ" in t or "^" in t or "*" in t:
+    if "/" in t or "\u00b5" in t or "\u03bc" in t or "^" in t or "*" in t:
         return True
     if t == "%":
         return True
@@ -180,38 +212,51 @@ def looks_like_unit(token: str) -> bool:
 def extract_unit_and_range(rest: list[str]) -> tuple[str | None, str]:
     if not rest:
         return None, ""
+
     if looks_like_unit(rest[0]):
         return rest[0], " ".join(rest[1:])
-    # nessun token unità evidente: tutto il resto è range/testo
+
     return None, " ".join(rest)
 
 
 HEADER_KEYWORDS = {
-    "ESAME", "ANALISI", "VALORE", "UNITA", "UNITÀ", "RIFERIMENTO",
-    "RIF", "METODO", "DATA", "PAZIENTE", "CODICE",
+    "ESAME",
+    "ANALISI",
+    "VALORE",
+    "UNITA",
+    "UNITÀ",
+    "RIFERIMENTO",
+    "RIF",
+    "METODO",
+    "DATA",
+    "PAZIENTE",
+    "CODICE",
 }
 
 
 def parse_lab_lines(text: str) -> list[dict]:
     results: list[dict] = []
+
     for raw_line in text.splitlines():
         line = raw_line.strip()
         if not line:
             continue
+
         tokens = line.split()
         if len(tokens) < 2:
             continue
-        # salta righe di intestazione
+
         if any(t.upper().strip("():.") in HEADER_KEYWORDS for t in tokens[:3]):
             continue
 
         idx_val = None
         for i, tok in enumerate(tokens):
             if i == 0:
-                continue  # il nome non può essere vuoto
+                continue
             if is_value_token(tok):
                 idx_val = i
                 break
+
         if idx_val is None:
             continue
 
@@ -244,6 +289,7 @@ def parse_lab_lines(text: str) -> list[dict]:
                 "confidence": conf,
             }
         )
+
     return results
 
 
@@ -252,9 +298,11 @@ def resolve_document_path(document: Document) -> Path:
         raise NotImplementedError(
             "Estrazione supportata solo con storage locale in questa versione."
         )
+
     path = LOCAL_STORAGE_ROOT / document.storage_key
     if not path.exists():
         raise FileNotFoundError(f"File documento non trovato: {path}")
+
     return path
 
 
@@ -264,33 +312,60 @@ def extract_text_from_pdf(path: Path) -> str:
         chunks = [page.get_text("text") for page in doc]
     finally:
         doc.close()
+
     return "\n".join(chunks)
 
 
 def extract_from_document(db: Session, document: Document) -> list[LabTest]:
     """
-    Estrae valori dal PDF del documento e li salva come BOZZE in lab_tests.
-    Idempotente: rimuove le bozze non confermate di questo documento e le
-    reinserisce. I valori già confermati dall'utente (Step 2) NON vengono toccati.
-    Ritorna la lista dei LabTest bozza creati.
+    Estrae valori da PDF testuali, PDF scansionati o immagini JPEG/PNG.
+    Salva i risultati come bozze in lab_tests.
+    Idempotente sulle bozze non confermate.
     """
-    if document.mime_type != "application/pdf":
+    path = resolve_document_path(document)
+    mime = (document.mime_type or "").lower()
+
+    text = ""
+    parsed: list[dict] = []
+    source = "none"
+
+    if mime == "application/pdf":
+        text = extract_text_from_pdf(path)
+        parsed = parse_lab_lines(text)
+
+        if parsed:
+            source = "pdf-text"
+        else:
+            logger.info(
+                "Nessun valore parseato dal testo PDF del documento %s, provo OCR.",
+                document.id,
+            )
+            ocr_text = extract_text_from_pdf_with_ocr(path)
+            if ocr_text and ocr_text.strip():
+                text = f"{text}\n{ocr_text}".strip()
+                parsed = parse_lab_lines(text)
+                source = "pdf-ocr" if parsed else "pdf-none"
+            else:
+                source = "pdf-none"
+
+    elif is_supported_image_mime(mime):
+        text = extract_text_from_image(path)
+        parsed = parse_lab_lines(text)
+        source = "image-ocr" if parsed else "image-none"
+
+    else:
         raise ValueError(
-            "Estrazione supportata solo per PDF in questa versione. "
-            "Immagini/OCR in arrivo in uno step successivo."
+            "Estrazione supportata solo per PDF e immagini JPEG/PNG in questa versione. "
+            "HEIC/TIFF in arrivo."
         )
 
-    path = resolve_document_path(document)
-    text = extract_text_from_pdf(path)
-    parsed = parse_lab_lines(text)
-
-    # cancella solo le bozze non confermate di questo documento
     db.query(LabTest).filter(
         LabTest.document_id == document.id,
         LabTest.confirmed_by_user.is_(False),
     ).delete(synchronize_session=False)
 
     created: list[LabTest] = []
+
     for item in parsed:
         lt = LabTest(
             document_id=document.id,
@@ -316,15 +391,22 @@ def extract_from_document(db: Session, document: Document) -> list[LabTest]:
     document.processing_status = "completed" if created else "pending"
     document.metadata_json = {
         **(document.metadata_json or {}),
+        "extraction_source": source,
         "extracted_count": len(created),
+        "text_chars": len(text or ""),
         "extracted_at_note": "draft bozze, conferma in Step 2",
     }
 
     db.commit()
+
     for lt in created:
         db.refresh(lt)
 
     logger.info(
-        "Estrazione documento %s: %d valori bozza", document.id, len(created)
+        "Estrazione documento %s: source=%s, %d valori bozza",
+        document.id,
+        source,
+        len(created),
     )
+
     return created
