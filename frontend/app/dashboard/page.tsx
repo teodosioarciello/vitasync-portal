@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
 import { API_BASE, apiFetch } from "@/lib/api";
+import { formatDateTime, humanReminderType } from "@/lib/format";
 
 type User = {
   id: string;
@@ -27,15 +28,27 @@ type DocumentItem = {
   processing_status: string;
 };
 
+type Reminder = {
+  id: string;
+  patient_id: string;
+  therapy_id: string | null;
+  title: string;
+  reminder_type: string;
+  scheduled_at: string;
+  status: string;
+};
+
 export default function DashboardPage() {
   const router = useRouter();
 
   const [user, setUser] = useState<User | null>(null);
   const [patient, setPatient] = useState<Patient | null>(null);
   const [documents, setDocuments] = useState<DocumentItem[]>([]);
+  const [reminders, setReminders] = useState<Reminder[]>([]);
   const [file, setFile] = useState<File | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [reminderError, setReminderError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -51,6 +64,17 @@ export default function DashboardPage() {
           `/api/documents?patient_id=${myPatient.id}`
         );
         setDocuments(docs);
+
+        try {
+          const rems = await apiFetch<Reminder[]>(
+            `/api/reminders?patient_id=${myPatient.id}&status=pending`
+          );
+          setReminders(rems);
+          setReminderError(null);
+        } catch {
+          setReminders([]);
+          setReminderError("Promemoria non disponibili.");
+        }
       } catch (err: any) {
         setError(err.message || "Impossibile caricare i dati.");
         router.replace("/login");
@@ -128,6 +152,38 @@ export default function DashboardPage() {
       setLoading(false);
     }
   }
+
+  const now = new Date();
+  const endToday = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate() + 1
+  );
+  const endSoon = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+
+  const pending = [...reminders]
+    .filter((r) => r.status === "pending")
+    .sort(
+      (a, b) =>
+        new Date(a.scheduled_at).getTime() -
+        new Date(b.scheduled_at).getTime()
+    );
+
+  const overdue = pending.filter(
+    (r) => new Date(r.scheduled_at).getTime() < now.getTime()
+  );
+
+  const today = pending.filter((r) => {
+    const t = new Date(r.scheduled_at).getTime();
+    return t >= now.getTime() && t < endToday.getTime();
+  });
+
+  const upcoming = pending.filter((r) => {
+    const t = new Date(r.scheduled_at).getTime();
+    return t >= endToday.getTime() && t <= endSoon.getTime();
+  });
+
+  const urgentCount = overdue.length + today.length;
 
   return (
     <main className="min-h-screen p-6">
@@ -210,6 +266,121 @@ export default function DashboardPage() {
           </Link>
         </section>
 
+        <section className="bg-white rounded-2xl shadow p-6 space-y-4">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-semibold">Promemoria in evidenza</h2>
+              <p className="text-sm text-slate-600">
+                {urgentCount > 0
+                  ? `${urgentCount} promemoria tra scaduti e oggi.`
+                  : "Nessun promemoria urgente."}
+              </p>
+            </div>
+
+            <Link
+              href="/reminders"
+              className="rounded-lg border border-slate-300 px-4 py-2 text-sm hover:bg-slate-100"
+            >
+              Apri promemoria
+            </Link>
+          </div>
+
+          {reminderError && (
+            <div className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg p-3">
+              {reminderError}
+            </div>
+          )}
+
+          {pending.length === 0 ? (
+            <div className="text-sm text-slate-600">
+              Nessun promemoria da fare.
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {overdue.length > 0 && (
+                <div>
+                  <h3 className="text-sm font-semibold text-red-700 mb-2">
+                    Scaduti ({overdue.length})
+                  </h3>
+                  <ul className="divide-y divide-slate-200">
+                    {overdue.slice(0, 5).map((r) => (
+                      <li
+                        key={r.id}
+                        className="py-2 flex items-start justify-between gap-3"
+                      >
+                        <div>
+                          <p className="font-medium">{r.title}</p>
+                          <p className="text-xs text-slate-500">
+                            {humanReminderType(r.reminder_type)} -{" "}
+                            {formatDateTime(r.scheduled_at)}
+                          </p>
+                        </div>
+                        <span className="shrink-0 rounded-full border border-red-200 bg-red-50 px-2 py-1 text-xs text-red-700">
+                          scaduto
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {today.length > 0 && (
+                <div>
+                  <h3 className="text-sm font-semibold text-amber-700 mb-2">
+                    Oggi ({today.length})
+                  </h3>
+                  <ul className="divide-y divide-slate-200">
+                    {today.slice(0, 5).map((r) => (
+                      <li
+                        key={r.id}
+                        className="py-2 flex items-start justify-between gap-3"
+                      >
+                        <div>
+                          <p className="font-medium">{r.title}</p>
+                          <p className="text-xs text-slate-500">
+                            {humanReminderType(r.reminder_type)} -{" "}
+                            {formatDateTime(r.scheduled_at)}
+                          </p>
+                        </div>
+                        <span className="shrink-0 rounded-full border border-amber-200 bg-amber-50 px-2 py-1 text-xs text-amber-700">
+                          oggi
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {upcoming.length > 0 && (
+                <div>
+                  <h3 className="text-sm font-semibold text-slate-700 mb-2">
+                    Prossimi 7 giorni ({upcoming.length})
+                  </h3>
+                  <ul className="divide-y divide-slate-200">
+                    {upcoming.slice(0, 5).map((r) => (
+                      <li
+                        key={r.id}
+                        className="py-2 flex items-start justify-between gap-3"
+                      >
+                        <div>
+                          <p className="font-medium">{r.title}</p>
+                          <p className="text-xs text-slate-500">
+                            {humanReminderType(r.reminder_type)} -{" "}
+                            {formatDateTime(r.scheduled_at)}
+                          </p>
+                        </div>
+                        <span className="shrink-0 rounded-full border border-slate-200 bg-slate-50 px-2 py-1 text-xs text-slate-600">
+                          in programma
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+        </section>
+
         <section className="bg-white rounded-2xl shadow p-6">
           <h2 className="text-lg font-semibold mb-4">Carica documento</h2>
 
@@ -286,10 +457,10 @@ export default function DashboardPage() {
         <section className="bg-white rounded-2xl shadow p-6">
           <h2 className="text-lg font-semibold mb-2">Prossimi step</h2>
           <ul className="list-disc pl-5 text-sm text-slate-700 space-y-1">
-            <li>Notifiche email/push per promemoria.</li>
+            <li>Email/push per promemoria.</li>
             <li>Ricorrenze avanzate.</li>
             <li>OCR immagini/referti scansionati.</li>
-            <li>Collegamento ricetta -> terapia.</li>
+            <li>Collegamento ricetta -&gt; terapia.</li>
             <li>Report PDF per il consulto medico.</li>
           </ul>
         </section>
