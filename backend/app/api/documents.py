@@ -17,7 +17,11 @@ from app.schemas.auth import MessageResponse
 from app.schemas.document import DocumentOut
 from app.schemas.lab_test import ConfirmAllResponse, LabTestOut
 from app.services.audit_identity import mark_audit_user
-from app.services.document_delete import delete_document_and_file
+from app.services.document_delete import (
+    permanent_delete_document,
+    restore_document,
+    soft_delete_document,
+)
 from app.services.extraction import extract_from_document
 from app.services.family import ensure_family_and_self_patient
 from app.services.storage import save_document
@@ -95,6 +99,30 @@ def get_authorized_patient(
     )
 
 
+def _get_active_document(
+    document_id: UUID,
+    current_user: User,
+    db: Session,
+    required_permission: str = "read",
+) -> Document:
+    document = db.get(Document, document_id)
+
+    if not document or document.deleted_at is not None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Documento non trovato.",
+        )
+
+    get_authorized_patient(
+        document.patient_id,
+        current_user,
+        db,
+        required_permission=required_permission,
+    )
+
+    return document
+
+
 @router.post("/upload", response_model=DocumentOut)
 async def upload_document(
     request: Request,
@@ -158,8 +186,42 @@ def list_documents(
 
     documents = (
         db.query(Document)
-        .filter(Document.patient_id == patient.id)
+        .filter(
+            Document.patient_id == patient.id,
+            Document.deleted_at.is_(None),
+        )
         .order_by(Document.created_at.desc())
+        .limit(100)
+        .all()
+    )
+
+    return [DocumentOut.model_validate(doc) for doc in documents]
+
+
+@router.get("/trash", response_model=list[DocumentOut])
+def list_trash(
+    patient_id: UUID | None = Query(None),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if patient_id is None:
+        _, patient = ensure_family_and_self_patient(db, current_user)
+        patient_id = patient.id
+
+    patient = get_authorized_patient(
+        patient_id,
+        current_user,
+        db,
+        required_permission="read",
+    )
+
+    documents = (
+        db.query(Document)
+        .filter(
+            Document.patient_id == patient.id,
+            Document.deleted_at.isnot(None),
+        )
+        .order_by(Document.deleted_at.desc())
         .limit(100)
         .all()
     )
@@ -173,19 +235,13 @@ def get_document(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    document = db.get(Document, document_id)
-    if not document:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Documento non trovato.",
-        )
-
-    get_authorized_patient(
-        document.patient_id,
+    document = _get_active_document(
+        document_id,
         current_user,
         db,
         required_permission="read",
     )
+
     return DocumentOut.model_validate(document)
 
 
@@ -198,15 +254,8 @@ def extract_document(
 ):
     mark_audit_user(request, current_user.id)
 
-    document = db.get(Document, document_id)
-    if not document:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Documento non trovato.",
-        )
-
-    get_authorized_patient(
-        document.patient_id,
+    document = _get_active_document(
+        document_id,
         current_user,
         db,
         required_permission="read",
@@ -244,15 +293,8 @@ def confirm_all_lab_tests(
 ):
     mark_audit_user(request, current_user.id)
 
-    document = db.get(Document, document_id)
-    if not document:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Documento non trovato.",
-        )
-
-    get_authorized_patient(
-        document.patient_id,
+    document = _get_active_document(
+        document_id,
         current_user,
         db,
         required_permission="write",
@@ -284,6 +326,7 @@ def delete_document(
     mark_audit_user(request, current_user.id)
 
     document = db.get(Document, document_id)
+
     if not document:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -297,18 +340,89 @@ def delete_document(
         required_permission="write",
     )
 
-    try:
-        deleted_file = delete_document_and_file(db, document)
-    except HTTPException:
-        raise
-    except Exception as exc:  # noqa: BLE001
-        db.rollback()
+    changed = soft_delete_document(db, document)
+
+    if changed:
+        detail = "Documento spostato nel cestino."
+    else:
+        detail = "Documento gia' nel cestino."
+
+    return MessageResponse(detail=detail)
+
+
+@router.post("/{document_id}/restore", response_model=MessageResponse)
+def restore_document_endpoint(
+    request: Request,
+    document_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    mark_audit_user(request, current_user.id)
+
+    document = db.get(Document, document_id)
+
+    if not document:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Eliminazione documento fallita: {exc}",
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Documento non trovato.",
         )
 
-    detail = "Documento eliminato."
+    get_authorized_patient(
+        document.patient_id,
+        current_user,
+        db,
+        required_permission="write",
+    )
+
+    if document.deleted_at is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Documento non nel cestino.",
+        )
+
+    changed = restore_document(db, document)
+
+    if changed:
+        detail = "Documento ripristinato dal cestino."
+    else:
+        detail = "Documento gia' attivo."
+
+    return MessageResponse(detail=detail)
+
+
+@router.delete("/{document_id}/permanent", response_model=MessageResponse)
+def permanent_delete_document_endpoint(
+    request: Request,
+    document_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    mark_audit_user(request, current_user.id)
+
+    document = db.get(Document, document_id)
+
+    if not document:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Documento non trovato.",
+        )
+
+    get_authorized_patient(
+        document.patient_id,
+        current_user,
+        db,
+        required_permission="write",
+    )
+
+    if document.deleted_at is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Eliminazione definitiva consentita solo per documenti nel cestino.",
+        )
+
+    deleted_file = permanent_delete_document(db, document)
+
+    detail = "Documento eliminato definitivamente."
     if deleted_file:
         detail += " File rimosso dallo storage."
     else:

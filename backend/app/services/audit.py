@@ -24,16 +24,27 @@ def derive_action(method: str, path: str) -> str | None:
     if path.startswith("/api/auth/logout"):
         return "auth.logout"
 
-    if path.startswith("/api/documents/upload"):
-        return "document.upload"
-    if "/extract" in path:
-        return "document.extract"
-    if "/confirm-all" in path:
-        return "lab_test.confirm_all"
+    if path.startswith("/api/documents"):
+        if method == "POST" and path.endswith("/restore"):
+            return "document.restore"
+
+        if method == "DELETE" and path.endswith("/permanent"):
+            return "document.permanent_delete"
+
+        if path.startswith("/api/documents/upload"):
+            return "document.upload"
+
+        if "/extract" in path:
+            return "document.extract"
+
+        if "/confirm-all" in path:
+            return "lab_test.confirm_all"
+
+        if method == "DELETE":
+            return "document.soft_delete"
+
     if path.startswith("/api/lab-tests") and method == "PATCH":
         return "lab_test.update"
-    if path.startswith("/api/documents") and method == "DELETE":
-        return "document.delete"
 
     if path.startswith("/api/medicines"):
         if method == "POST":

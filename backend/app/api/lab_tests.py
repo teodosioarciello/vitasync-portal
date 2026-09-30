@@ -63,16 +63,24 @@ def list_lab_tests(
 
     if document_id is not None:
         document = db.get(Document, document_id)
-        if not document:
+        if not document or document.deleted_at is not None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Documento non trovato.",
             )
+
         get_authorized_patient(document.patient_id, current_user, db, required_permission="read")
         query = db.query(LabTest).filter(LabTest.document_id == document_id)
     else:
         get_authorized_patient(patient_id, current_user, db, required_permission="read")
-        query = db.query(LabTest).filter(LabTest.patient_id == patient_id)
+        query = (
+            db.query(LabTest)
+            .join(Document, LabTest.document_id == Document.id)
+            .filter(
+                LabTest.patient_id == patient_id,
+                Document.deleted_at.is_(None),
+            )
+        )
 
     rows = query.order_by(LabTest.test_name_normalized.asc()).all()
     return [LabTestOut.model_validate(r) for r in rows]
@@ -93,6 +101,13 @@ def patch_lab_test(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Valore esame non trovato.",
+        )
+
+    document = db.get(Document, lt.document_id)
+    if not document or document.deleted_at is not None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Il documento collegato e' nel cestino o non disponibile.",
         )
 
     patient = db.get(Patient, lt.patient_id)
@@ -157,6 +172,7 @@ def list_lab_test_codes(
         .filter(
             LabTest.patient_id == patient.id,
             LabTest.confirmed_by_user.is_(True),
+            Document.deleted_at.is_(None),
         )
         .all()
     )
@@ -209,6 +225,7 @@ def get_lab_test_trend(
             LabTest.test_code == test_code,
             LabTest.confirmed_by_user.is_(True),
             LabTest.value_numeric.isnot(None),
+            Document.deleted_at.is_(None),
         )
         .all()
     )

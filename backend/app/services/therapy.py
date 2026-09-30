@@ -95,10 +95,10 @@ def validate_document_for_patient(
     db: Session,
 ) -> Document:
     document = db.get(Document, document_id)
-    if not document or document.patient_id != patient_id:
+    if not document or document.patient_id != patient_id or document.deleted_at is not None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Documento non valido per questo paziente.",
+            detail="Documento non disponibile perche' nel cestino o non valido per questo paziente.",
         )
     return document
 

@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime, timezone
 from pathlib import Path
 
 from fastapi import HTTPException, status
@@ -11,6 +12,10 @@ from app.db.therapy_models import Therapy
 logger = logging.getLogger(__name__)
 
 LOCAL_STORAGE_ROOT = Path(settings.local_storage_path)
+
+
+def _utcnow() -> datetime:
+    return datetime.now(timezone.utc)
 
 
 def _resolve_document_path(document: Document) -> Path | None:
@@ -42,7 +47,7 @@ def _resolve_document_path(document: Document) -> Path | None:
 
 def delete_document_and_file(db: Session, document: Document) -> bool:
     """
-    Elimina documento, lab_tests collegate, detach terapie e file fisico.
+    Elimina definitivamente documento, lab_tests collegate, detach terapie e file fisico.
     Ritorna True se il file esisteva ed e' stato eliminato, False se era gia' assente.
     """
     path = _resolve_document_path(document)
@@ -100,3 +105,49 @@ def delete_document_and_file(db: Session, document: Document) -> bool:
         raise
 
     return file_existed
+
+
+def soft_delete_document(db: Session, document: Document) -> bool:
+    """
+    Sposta il documento nel cestino senza toccare file, lab_tests o terapie.
+    Ritorna True se il documento e' stato spostato, False se era gia' nel cestino.
+    """
+    if document.deleted_at is not None:
+        return False
+
+    document.deleted_at = _utcnow()
+    document.updated_at = _utcnow()
+    db.commit()
+
+    logger.info("Documento %s spostato nel cestino.", document.id)
+    return True
+
+
+def restore_document(db: Session, document: Document) -> bool:
+    """
+    Ripristina un documento dal cestino.
+    Ritorna True se ripristinato, False se non era nel cestino.
+    """
+    if document.deleted_at is None:
+        return False
+
+    document.deleted_at = None
+    document.updated_at = _utcnow()
+    db.commit()
+
+    logger.info("Documento %s ripristinato dal cestino.", document.id)
+    return True
+
+
+def permanent_delete_document(db: Session, document: Document) -> bool:
+    """
+    Eliminazione definitiva consentita solo per documenti gia' nel cestino.
+    Ritorna True se il file esisteva ed e' stato eliminato, False se era gia' assente.
+    """
+    if document.deleted_at is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Eliminazione definitiva consentita solo per documenti nel cestino.",
+        )
+
+    return delete_document_and_file(db, document)

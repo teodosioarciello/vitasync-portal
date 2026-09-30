@@ -1,4 +1,4 @@
-﻿from datetime import date, datetime
+from datetime import date, datetime
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
@@ -17,4 +17,5 @@ class DocumentOut(BaseModel):
     document_date: date | None
     processing_status: str
     ai_status: str
+    deleted_at: datetime | None = None
     created_at: datetime

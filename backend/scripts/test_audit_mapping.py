@@ -1,5 +1,5 @@
 """
-Test deterministico Sprint C-media Step 5/5b.
+Test deterministico Sprint C-media Step 5/5b/6A.
 Verifica che derive_action mappi correttamente le azioni sensibili
 di documenti, lab-test, medicinali, terapie, promemoria e auth.
 
@@ -28,8 +28,11 @@ CASES = [
     ("POST", "/api/reminders", "reminder.create"),
     ("PATCH", "/api/reminders/123", "reminder.update"),
     ("GET", "/api/documents", None),
+    ("GET", "/api/documents/trash", None),
     ("POST", "/api/documents/upload", "document.upload"),
-    ("DELETE", "/api/documents/123", "document.delete"),
+    ("DELETE", "/api/documents/123", "document.soft_delete"),
+    ("POST", "/api/documents/123/restore", "document.restore"),
+    ("DELETE", "/api/documents/123/permanent", "document.permanent_delete"),
     ("POST", "/api/documents/123/extract", "document.extract"),
     ("POST", "/api/documents/123/lab-tests/confirm-all", "lab_test.confirm_all"),
     ("PATCH", "/api/lab-tests/123", "lab_test.update"),

@@ -91,28 +91,28 @@ Sostituisci il nome del file dump con quello reale.
 
 ## 5. Cancellazione documenti
 
-Lo stato attuale usa **hard delete**:
+Dallo Sprint C-media Step 6A la cancellazione documento e' soft-delete:
 
-- elimina la riga `documents`;
-- elimina le `lab_tests` collegate;
-- rimuove il riferimento da eventuali terapie;
-- elimina il file fisico dallo storage locale, se presente.
+- `DELETE /api/documents/{id}` sposta il documento nel cestino impostando `deleted_at`;
+- il file fisico resta nello storage locale;
+- le `lab_tests` collegate restano nel DB;
+- le terapie collegate come ricetta restano collegate;
+- il documento non compare piu' negli elenchi attivi, nella review, nell'estrazione, nei trend e nei valori laboratorio finche' e' nel cestino.
 
-Non c'e':
+Endpoint cestino:
 
-- cestino;
-- undo;
-- soft-delete;
-- retention policy automatica;
-- quarantena.
+- `GET /api/documents/trash` elenca i documenti nel cestino;
+- `POST /api/documents/{id}/restore` ripristina un documento dal cestino;
+- `DELETE /api/documents/{id}/permanent` elimina definitivamente un documento gia' nel cestino, rimuovendo file, lab_tests e detachando le terapie.
 
-Quindi, prima di usare dati reali, considerare:
+L'eliminazione definitiva e' consentita solo su documenti gia' soft-deleted. Questo riduce il rischio di cancellazione accidentale, ma resta un hard delete irreversibile quando eseguito dal cestino.
+
+Prima di usare dati reali, considerare comunque:
 
 - backup DB recente;
 - eventuale backup `data/`;
-- conferma utente chiara;
-- policy di retention;
-- valutazione soft-delete in produzione.
+- policy di retention futura;
+- UI cestino nel frontend, prevista nello Sprint C-media Step 6B.
 
 ## 6. Audit log
 
