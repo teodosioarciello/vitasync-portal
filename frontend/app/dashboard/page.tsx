@@ -50,6 +50,7 @@ export default function DashboardPage() {
   const [error, setError] = useState<string | null>(null);
   const [reminderError, setReminderError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   useEffect(() => {
     async function load() {
@@ -150,6 +151,34 @@ export default function DashboardPage() {
       setError(err.message || "Upload fallito.");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function onDeleteDocument(doc: DocumentItem) {
+    const ok = window.confirm(
+      `Eliminare il documento "${doc.title}"? L'operazione non e' reversibile.`
+    );
+
+    if (!ok) return;
+
+    setDeletingId(doc.id);
+    setError(null);
+    setMessage(null);
+
+    try {
+      const res = await apiFetch<{ detail: string }>(
+        `/api/documents/${doc.id}`,
+        {
+          method: "DELETE",
+        }
+      );
+
+      setDocuments((prev) => prev.filter((x) => x.id !== doc.id));
+      setMessage(res.detail || "Documento eliminato.");
+    } catch (err: any) {
+      setError(err.message || "Eliminazione documento fallita.");
+    } finally {
+      setDeletingId(null);
     }
   }
 
@@ -433,7 +462,7 @@ export default function DashboardPage() {
               {documents.map((doc) => (
                 <li
                   key={doc.id}
-                  className="py-3 flex items-center justify-between"
+                  className="py-3 flex flex-col md:flex-row md:items-center md:justify-between gap-3"
                 >
                   <div>
                     <p className="font-medium">{doc.title}</p>
@@ -442,12 +471,22 @@ export default function DashboardPage() {
                     </p>
                   </div>
 
-                  <Link
-                    href={`/documents/${doc.id}/review`}
-                    className="rounded-lg border border-slate-300 px-3 py-1 text-xs font-medium hover:bg-slate-100"
-                  >
-                    Review
-                  </Link>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Link
+                      href={`/documents/${doc.id}/review`}
+                      className="rounded-lg border border-slate-300 px-3 py-1 text-xs font-medium hover:bg-slate-100"
+                    >
+                      Review
+                    </Link>
+
+                    <button
+                      onClick={() => void onDeleteDocument(doc)}
+                      disabled={deletingId === doc.id}
+                      className="rounded-lg border border-red-200 px-3 py-1 text-xs font-medium text-red-700 hover:bg-red-50 disabled:opacity-50"
+                    >
+                      {deletingId === doc.id ? "Elimino..." : "Elimina"}
+                    </button>
+                  </div>
                 </li>
               ))}
             </ul>
@@ -457,9 +496,9 @@ export default function DashboardPage() {
         <section className="bg-white rounded-2xl shadow p-6">
           <h2 className="text-lg font-semibold mb-2">Prossimi step</h2>
           <ul className="list-disc pl-5 text-sm text-slate-700 space-y-1">
+            <li>Soft-delete o cestino con ripristino.</li>
             <li>Email/push per promemoria.</li>
             <li>Ricorrenze avanzate.</li>
-            <li>OCR immagini/referti scansionati.</li>
             <li>Collegamento ricetta -&gt; terapia.</li>
             <li>Report PDF per il consulto medico.</li>
           </ul>
