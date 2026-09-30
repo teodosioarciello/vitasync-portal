@@ -387,7 +387,7 @@ export default function DashboardPage() {
           <form onSubmit={onUpload} className="space-y-4">
             <input
               type="file"
-              accept=".pdf,.jpg,.jpeg,.png,.heic"
+              accept=".pdf,.jpg,.jpeg,.png"
               onChange={(e) => setFile(e.target.files?.[0] || null)}
               className="block w-full text-sm text-slate-700
                 file:mr-4 file:py-2 file:px-4

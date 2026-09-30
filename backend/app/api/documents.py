@@ -18,6 +18,7 @@ from app.schemas.lab_test import ConfirmAllResponse, LabTestOut
 from app.services.extraction import extract_from_document
 from app.services.family import ensure_family_and_self_patient
 from app.services.storage import save_document
+from app.services.upload_validation import validate_upload_file
 
 router = APIRouter(prefix="/api/documents", tags=["documents"])
 
@@ -106,7 +107,14 @@ async def upload_document(
             detail="Tipo documento non valido.",
         )
 
-    patient = get_authorized_patient(patient_id, current_user, db, required_permission="write")
+    detected_mime = validate_upload_file(file)
+
+    patient = get_authorized_patient(
+        patient_id,
+        current_user,
+        db,
+        required_permission="write",
+    )
 
     document = await save_document(
         db=db,
@@ -116,6 +124,11 @@ async def upload_document(
         document_type=document_type,
         file=file,
     )
+
+    if document.mime_type != detected_mime:
+        document.mime_type = detected_mime
+        db.commit()
+        db.refresh(document)
 
     return DocumentOut.model_validate(document)
 
@@ -130,7 +143,12 @@ def list_documents(
         _, patient = ensure_family_and_self_patient(db, current_user)
         patient_id = patient.id
 
-    patient = get_authorized_patient(patient_id, current_user, db, required_permission="read")
+    patient = get_authorized_patient(
+        patient_id,
+        current_user,
+        db,
+        required_permission="read",
+    )
 
     documents = (
         db.query(Document)
@@ -156,7 +174,12 @@ def get_document(
             detail="Documento non trovato.",
         )
 
-    get_authorized_patient(document.patient_id, current_user, db, required_permission="read")
+    get_authorized_patient(
+        document.patient_id,
+        current_user,
+        db,
+        required_permission="read",
+    )
     return DocumentOut.model_validate(document)
 
 
@@ -173,7 +196,12 @@ def extract_document(
             detail="Documento non trovato.",
         )
 
-    get_authorized_patient(document.patient_id, current_user, db, required_permission="read")
+    get_authorized_patient(
+        document.patient_id,
+        current_user,
+        db,
+        required_permission="read",
+    )
 
     try:
         created = extract_from_document(db, document)
@@ -211,7 +239,12 @@ def confirm_all_lab_tests(
             detail="Documento non trovato.",
         )
 
-    get_authorized_patient(document.patient_id, current_user, db, required_permission="write")
+    get_authorized_patient(
+        document.patient_id,
+        current_user,
+        db,
+        required_permission="write",
+    )
 
     count = (
         db.query(LabTest)
