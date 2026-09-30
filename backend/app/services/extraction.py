@@ -16,6 +16,7 @@ from app.services.ocr import (
 logger = logging.getLogger(__name__)
 
 LOCAL_STORAGE_ROOT = Path(settings.local_storage_path)
+PARSER_VERSION = "ocr-hardened-v1"
 
 STATUS_WORDS = {
     "negativo",
@@ -82,7 +83,6 @@ EXAM_SYNONYMS = {
     "HDL": ("hdl", "Colesterolo HDL"),
     "TRIGLICERIDI": ("triglycerides", "Trigliceridi"),
     "HBA1C": ("hba1c", "Emoglobina glicata"),
-    "HBALC": ("hba1c", "Emoglobina glicata"),
     "EMOGLOBINA GLICATA": ("hba1c", "Emoglobina glicata"),
     "EMOGLOBINA": ("hemoglobin", "Emoglobina"),
     "HB": ("hemoglobin", "Emoglobina"),
@@ -103,6 +103,40 @@ EXAM_SYNONYMS = {
     "FERRITINA": ("ferritin", "Ferritina"),
     "FERRO": ("iron", "Ferro"),
     "VITAMINA D": ("vitamin_d", "Vitamina D"),
+}
+
+EXAM_SYNONYMS_COMPACT = {
+    key.replace(" ", ""): value
+    for key, value in EXAM_SYNONYMS.items()
+}
+
+OCR_DIGIT_TRANSLATION = str.maketrans(
+    {
+        "0": "O",
+        "1": "I",
+        "5": "S",
+        "8": "B",
+    }
+)
+
+OCR_COMPACT_ALIASES = {
+    "HBAIC": ("hba1c", "Emoglobina glicata"),
+    "HBALC": ("hba1c", "Emoglobina glicata"),
+    "HBA1C": ("hba1c", "Emoglobina glicata"),
+    "COLESTEROLLDL": ("ldl", "Colesterolo LDL"),
+    "COLESTEROLHDL": ("hdl", "Colesterolo HDL"),
+    "COLESTEROLTOTALE": ("cholesterol_total", "Colesterolo totale"),
+    "GOTAST": ("ast", "AST (GOT)"),
+    "GPTALT": ("alt", "ALT (GPT)"),
+    "TRIGLICERID1": ("triglycerides", "Trigliceridi"),
+    "CREATIN1NA": ("creatinine", "Creatinina"),
+    "L1PAS1": ("lipase", "Lipasi"),
+    "P0TASSI0": ("potassium", "Potassio"),
+    "GLUC0SIO": ("glucose", "Glucosio"),
+    "S0DIO": ("sodium", "Sodio"),
+    "CALCI0": ("calcium", "Calcio"),
+    "FERR1TINA": ("ferritin", "Ferritina"),
+    "V1TAMINAD": ("vitamin_d", "Vitamina D"),
 }
 
 _VALUE_RE = re.compile(r"^[-+]?\d+(?:[.,]\d+)?$")
@@ -131,11 +165,48 @@ def _title(raw: str) -> str:
 
 
 def normalize_exam_name(raw: str) -> tuple[str, str, float]:
+    """
+    Normalizza il nome esame con tolleranza agli errori OCR piu' comuni.
+
+    Ordine di risoluzione:
+    1. match esatto sulla chiave normalizzata;
+    2. match compatto senza spazi;
+    3. match dopo sostituzione confusi digitali 0/O, 1/I, 5/S, 8/B;
+    4. match compatto dopo sostituzione digitale;
+    5. alias OCR espliciti;
+    6. fallback slug con confidenza bassa.
+    """
     key = _normalize_key(raw)
+    compact = key.replace(" ", "")
+
+    ocr_key = key.translate(OCR_DIGIT_TRANSLATION)
+    ocr_compact = ocr_key.replace(" ", "")
+
     if key in EXAM_SYNONYMS:
         code, display = EXAM_SYNONYMS[key]
-        return code, display, 0.9
-    return _slug(raw), _title(raw), 0.5
+        return code, display, 0.90
+
+    if compact in EXAM_SYNONYMS_COMPACT:
+        code, display = EXAM_SYNONYMS_COMPACT[compact]
+        return code, display, 0.85
+
+    if ocr_key in EXAM_SYNONYMS:
+        code, display = EXAM_SYNONYMS[ocr_key]
+        return code, display, 0.82
+
+    if ocr_compact in EXAM_SYNONYMS_COMPACT:
+        code, display = EXAM_SYNONYMS_COMPACT[ocr_compact]
+        return code, display, 0.80
+
+    if compact in OCR_COMPACT_ALIASES:
+        code, display = OCR_COMPACT_ALIASES[compact]
+        return code, display, 0.75
+
+    if ocr_compact in OCR_COMPACT_ALIASES:
+        code, display = OCR_COMPACT_ALIASES[ocr_compact]
+        return code, display, 0.75
+
+    return _slug(raw), _title(raw), 0.50
 
 
 def _to_float(token: str) -> float | None:
@@ -391,6 +462,7 @@ def extract_from_document(db: Session, document: Document) -> list[LabTest]:
     document.processing_status = "completed" if created else "pending"
     document.metadata_json = {
         **(document.metadata_json or {}),
+        "parser_version": PARSER_VERSION,
         "extraction_source": source,
         "extracted_count": len(created),
         "text_chars": len(text or ""),
@@ -403,9 +475,10 @@ def extract_from_document(db: Session, document: Document) -> list[LabTest]:
         db.refresh(lt)
 
     logger.info(
-        "Estrazione documento %s: source=%s, %d valori bozza",
+        "Estrazione documento %s: source=%s, parser=%s, %d valori bozza",
         document.id,
         source,
+        PARSER_VERSION,
         len(created),
     )
 
