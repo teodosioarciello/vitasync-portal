@@ -668,3 +668,37 @@ Criterio PASS:
 
 Frequenza consigliata: dopo ogni step che modifica schema o dati,
 e comunque prima di iniziare a caricare documenti reali.
+
+<!-- B-STEP4E-SETTINGS-SECTION -->
+### 7.9 Preferenze utente canale notifiche - Sprint B Step 4E
+
+Dallo Sprint B Step 4B esiste uno scheduler sicuro per le notifiche.
+Dallo Sprint B Step 4E esiste una pagina `/settings` dove l'utente puo':
+
+- abilitare/disabilitare le notifiche;
+- scegliere il canale preferito: `console` (default, solo log) oppure `smtp`;
+- configurare un server SMTP personale (host, porta, user, password, from, TLS);
+- inviare una email di prova per verificare la configurazione.
+
+Endpoint:
+
+    GET    /api/settings           ritorna le impostazioni correnti
+    PATCH  /api/settings           aggiorna le impostazioni
+    POST   /api/settings/test-email  invia una email di prova all'utente
+
+Sicurezza:
+
+- la password SMTP e' salvata in chiaro nel DB: dichiarato in UI e docs;
+- la password SMTP non viene mai esposta via API (solo `has_smtp_password: bool`);
+- il test email viene inviato SOLO all'email del profilo utente;
+- se l'utente non configura nulla, il sistema continua a usare il canale `console`;
+- l'aggiornamento delle impostazioni e il test email sono tracciati in audit_logs;
+- nessuna modifica allo scheduler Step 4B: il wrapper resta con dry-run di default.
+
+Uso consigliato:
+
+1. apri /settings;
+2. lascia canale "console" per uso normale;
+3. se vuoi email reali, configura SMTP;
+4. premi "Invia email di prova" e verifica la ricezione;
+5. solo dopo aver verificato, modifica lo scheduler per usare -Execute con SMTP.

@@ -354,6 +354,13 @@ export default function DashboardPage() {
               Report PDF
             </Link>
 
+            <Link
+              href="/settings"
+              className="rounded-lg border border-slate-300 px-3 py-2 text-sm hover:bg-slate-100"
+            >
+              Impostazioni
+            </Link>
+
             <button
               onClick={onLogout}
               className="rounded-lg border border-slate-300 px-3 py-2 text-sm hover:bg-slate-100"
