@@ -630,3 +630,41 @@ Caratteristiche di sicurezza e privacy:
 - l'accesso e' limitato ai pazienti della propria famiglia (403 altrimenti);
 - ogni download viene tracciato in audit con action `report.medical_summary_download`;
 - il PDF include un disclaimer esplicito: strumento organizzativo, non diagnostico.
+
+<!-- DR-DRILL-SECTION -->
+## 9. Disaster recovery e drill di restore
+
+Prima di usare dati sanitari reali, il progetto mantiene tre livelli di protezione:
+
+1. backup DB:
+
+    powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\backup-db.ps1
+
+2. backup file documenti (data/):
+
+    powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\backup-data.ps1
+
+3. drill di restore periodico:
+
+    powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\drill-restore.ps1
+
+Il drill:
+
+- seleziona l'ultimo dump in D:\RD\VitaSync\backups\db (o un dump specifico con -DumpPath);
+- rileva automaticamente il formato (custom pg_dump oppure plain SQL);
+- crea un database ISOLATO chiamato vitasync_drill;
+- ripristina il dump solo nel database isolato;
+- verifica la presenza delle tabelle attese e confronta i conteggi con il DB production;
+- esegue cleanup automatico (dump temporaneo + drop del DB drill), salvo -Keep.
+
+Regola operativa: il drill NON tocca mai il database production vitasync,
+che viene usato solo in lettura per il confronto conteggi.
+
+Criterio PASS:
+
+- restore con exit code 0;
+- tutte le tabelle attese presenti;
+- almeno 1 utente ripristinato.
+
+Frequenza consigliata: dopo ogni step che modifica schema o dati,
+e comunque prima di iniziare a caricare documenti reali.
