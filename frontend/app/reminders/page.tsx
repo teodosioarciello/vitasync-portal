@@ -47,6 +47,7 @@ export default function RemindersPage() {
   const [therapies, setTherapies] = useState<TherapyOption[]>([]);
   const [items, setItems] = useState<Reminder[]>([]);
   const [filter, setFilter] = useState("");
+  const [notifiedIds, setNotifiedIds] = useState<Set<string>>(new Set());
 
   const [form, setForm] = useState<Record<string, string>>(() => ({
     title: "",
@@ -72,13 +73,15 @@ export default function RemindersPage() {
 
       const qs = filter ? `&status=${encodeURIComponent(filter)}` : "";
 
-      const [therapyList, reminderList] = await Promise.all([
+      const [therapyList, reminderList, notifiedList] = await Promise.all([
         apiFetch<TherapyOption[]>(`/api/therapies?patient_id=${me.id}`),
         apiFetch<Reminder[]>(`/api/reminders?patient_id=${me.id}${qs}`),
+        apiFetch<string[]>(`/api/notifications/reminders-status?patient_id=${me.id}`).catch(() => []),
       ]);
 
       setTherapies(therapyList);
       setItems(reminderList);
+      setNotifiedIds(new Set(notifiedList));
     } catch (err: any) {
       setError(err.message || "Impossibile caricare i promemoria.");
     } finally {
@@ -381,6 +384,12 @@ export default function RemindersPage() {
                       >
                         {humanReminderStatus(r.status)}
                       </span>
+
+                      {notifiedIds.has(r.id) && (
+                        <span className="inline-block px-3 py-1 rounded-full border border-emerald-200 bg-emerald-50 text-xs font-medium text-emerald-700">
+                          Notificato
+                        </span>
+                      )}
                     </div>
                   </div>
 

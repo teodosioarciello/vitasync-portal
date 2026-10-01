@@ -595,3 +595,18 @@ Futura evoluzione possibile:
 - Step 4D: badge notificato nella lista promemoria;
 - Step 4E: preferenze utente canale console/smtp;
 - Step 4F: push/webpush solo dopo consenso e privacy review.
+
+<!-- B-STEP4D-BADGE-SECTION -->
+### 7.8 Badge "Notificato" nei promemoria - Sprint B Step 4D
+
+Dallo Sprint B Step 4D la pagina /reminders mostra un badge verde "Notificato"
+accanto ai promemoria che hanno almeno una notifica con status 'sent'.
+
+I dati arrivano dall'endpoint read-only:
+
+    GET /api/notifications/reminders-status?patient_id=<uuid>
+
+che restituisce la lista degli ID promemoria notificati per l'utente corrente.
+
+Il badge e' puramente informativo: non invia nulla, non elimina nulla,
+non modifica stati e non abilita SMTP o push.

@@ -28,9 +28,11 @@ if str(BASE_DIR) not in sys.path:
 from app.db.models import User
 from app.db.notification_models import NotificationLog
 from app.db.session import SessionLocal
+from app.services.family import ensure_family_and_self_patient
 
 # Registra la tabella reminders nel metadata SQLAlchemy per i test standalone
 import app.db.therapy_models  # noqa: F401
+from app.db.therapy_models import Reminder
 
 API_BASE = os.getenv("VITASYNC_API_BASE", "http://localhost:8000")
 USERNAME = os.getenv("VITASYNC_TEST_USERNAME", "teo.test")
@@ -98,6 +100,8 @@ try:
         user = db.query(User).filter(User.username == USERNAME).first()
         if not user:
             raise RuntimeError("Utente di test non trovato nel DB.")
+
+        _, patient = ensure_family_and_self_patient(db, user)
 
         now = datetime.now(timezone.utc)
 
@@ -175,6 +179,52 @@ try:
             isinstance(notFailed, list) and not any(i.get("id") == str(log_id) for i in notFailed),
         )
 
+
+        # =========================================================================
+        # TEST STEP 4D: reminders-status con Reminder reale
+        # =========================================================================
+        reminder = Reminder(
+            patient_id=patient.id,
+            title="TEST reminder for badge",
+            reminder_type="medication",
+            scheduled_at=now,
+            status="pending",
+            created_by_user_id=user.id,
+        )
+        db.add(reminder)
+        db.commit()
+        db.refresh(reminder)
+        reminder_id = str(reminder.id)
+
+        log_with_reminder = NotificationLog(
+            reminder_id=reminder.id,
+            patient_id=patient.id,
+            user_id=user.id,
+            channel="console",
+            event="reminder_due",
+            status="sent",
+            recipient=user.email or "test@example.com",
+            subject="Test badge Step 4D",
+            error=None,
+            scheduled_for=now,
+            sent_at=now,
+            metadata_json={"step4d_badge_test": True},
+        )
+        db.add(log_with_reminder)
+        db.commit()
+
+        status, body_ids = http("GET", "/api/notifications/reminders-status")
+        check("GET /api/notifications/reminders-status HTTP 200", status == 200)
+        check("reminders-status include reminder_id", isinstance(body_ids, list) and reminder_id in body_ids)
+
+        status, body_ids_pat = http("GET", f"/api/notifications/reminders-status?patient_id={patient.id}")
+        check("reminders-status con patient_id HTTP 200", status == 200)
+        check("reminders-status con patient_id include reminder_id", isinstance(body_ids_pat, list) and reminder_id in body_ids_pat)
+
+        # Pulizia specifica per Step 4D
+        db.delete(log_with_reminder)
+        db.delete(reminder)
+        db.commit()
     finally:
         if log_id is not None:
             try:

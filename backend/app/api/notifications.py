@@ -10,6 +10,7 @@ Legge soltanto notification_logs.
 """
 
 from datetime import datetime
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
@@ -82,3 +83,24 @@ def list_notifications(
         }
         for log in logs
     ]
+
+@router.get("/reminders-status")
+def get_notified_reminders_ids(
+    patient_id: UUID | None = Query(None),
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """
+    Ritorna gli ID dei promemoria che hanno ricevuto almeno una notifica con status 'sent'.
+    """
+    query = db.query(NotificationLog.reminder_id).filter(
+        NotificationLog.status == "sent",
+        NotificationLog.reminder_id.isnot(None),
+        NotificationLog.user_id == current_user.id,
+    )
+
+    if patient_id:
+        query = query.filter(NotificationLog.patient_id == patient_id)
+
+    ids = [str(row[0]) for row in query.distinct().all()]
+    return ids
