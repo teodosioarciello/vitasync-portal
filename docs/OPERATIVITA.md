@@ -107,14 +107,12 @@ Endpoint cestino:
 
 L'eliminazione definitiva e' consentita solo su documenti gia' soft-deleted. Questo riduce il rischio di cancellazione accidentale, ma resta un hard delete irreversibile quando eseguito dal cestino.
 
-### 5.1 Retention e purge del cestino
+### 5.1 Retention e purge manuale
 
 Dallo Sprint C-media Step 7 esiste uno script manuale di retention/purge:
 
-```powershell
-docker compose exec backend python scripts/purge_expired_trash.py --days 30 --dry-run
-docker compose exec backend python scripts/purge_expired_trash.py --days 30
-```
+    docker compose exec backend python scripts/purge_expired_trash.py --days 30 --dry-run
+    docker compose exec backend python scripts/purge_expired_trash.py --days 30
 
 Default retention: 30 giorni.
 
@@ -122,34 +120,26 @@ Puoi configurarla:
 
 - con environment variable:
 
-```text
-TRASH_RETENTION_DAYS=30
-```
+    TRASH_RETENTION_DAYS=30
 
 - oppure con parametro CLI:
 
-```powershell
---days 30
-```
+    --days 30
 
 Lo script elimina solo documenti con:
 
-```text
-deleted_at IS NOT NULL
-AND deleted_at <= now() - retention_days
-```
+    deleted_at IS NOT NULL
+    AND deleted_at <= now() - retention_days
 
 Non tocca documenti attivi.
 
 Per ogni documento purgato registra audit:
 
-```text
-action = document.retention_purge
-method = SYSTEM
-path = scripts/purge_expired_trash.py
-user_id = null
-extra = document_id=...;patient_id=...;uploaded_by_user_id=...;deleted_at=...;file_existed=...
-```
+    action = document.retention_purge
+    method = SYSTEM
+    path = scripts/purge_expired_trash.py
+    user_id = null
+    extra = document_id=...;patient_id=...;uploaded_by_user_id=...;deleted_at=...;file_existed=...
 
 `user_id` e' nullo perche' l'azione e' di sistema, non di un utente autenticato.
 
@@ -160,9 +150,48 @@ Prima di eseguire purge su dati reali:
 - dry-run preliminare;
 - verifica che i documenti candidabili siano effettivamente solo quelli attesi.
 
+### 5.2 Report retention sicuro e scheduler
+
+Dallo Sprint C-media Step 8 esiste uno script di solo report:
+
+    docker compose exec backend python scripts/report_retention_trash.py --days 30
+
+Oppure, da host:
+
+    powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\retention-report.ps1 -Days 30
+
+Questo script:
+
+- elenca i documenti nel cestino oltre la retention;
+- NON elimina documenti;
+- NON elimina file;
+- NON tocca lab_tests;
+- registra audit:
+
+    action = document.retention_report
+    method = SYSTEM
+    path = scripts/report_retention_trash.py
+    user_id = null
+    extra = days=...;candidates=...;oldest_deleted_at=...;candidate_document_ids=...;truncated=...
+
+La schedulerazione sicura consigliata e' solo il report. Esempio con Task Scheduler Windows:
+
+    schtasks /Create /TN "VitaSync Retention Report" /TR "powershell -NoProfile -ExecutionPolicy Bypass -File D:\RD\VitaSync\vitasync-portal\scripts\retention-report.ps1 -Days 30" /SC DAILY /ST 03:15 /F
+
+Per rimuovere l'activity schedulata:
+
+    schtasks /Delete /TN "VitaSync Retention Report" /F
+
+Policy operativa:
+
+- lo scheduler puo' eseguire solo `retention-report.ps1`;
+- la purge definitiva resta manuale;
+- prima di ogni purge reale eseguire backup DB e dry-run;
+- non schedulare `purge_expired_trash.py` senza una revisione esplicita della policy.
+
 Futura evoluzione possibile:
 
-- scheduler automatico;
+- scheduler con approvazione umana;
 - UI “Svuota cestino”;
 - retention differenziata per paziente/tenant;
 - notifiche prima della purge definitiva.
