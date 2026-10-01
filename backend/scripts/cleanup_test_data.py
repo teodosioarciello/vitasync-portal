@@ -499,15 +499,27 @@ def main() -> int:
             "promemoria fixture e terapia sintetica di test."
         ),
     )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help=(
+            "Esegue esplicitamente solo il dry-run. E' il comportamento di default; "
+            "serve per coerenza con la documentazione. Se passato insieme a --execute, "
+            "--dry-run ha la precedenza per sicurezza."
+        ),
+    )
 
     args = parser.parse_args()
+
+    if args.execute and args.dry_run:
+        print("ATTENZIONE: passati sia --execute sia --dry-run. Per sicurezza eseguo DRY-RUN.")
 
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s %(levelname)s %(name)s %(message)s",
     )
 
-    mode = "EXECUTE" if args.execute else "DRY-RUN"
+    mode = "DRY-RUN" if args.dry_run or not args.execute else "EXECUTE"
 
     print(f"Modalita': {mode}")
     print("Nota: gli audit log NON vengono eliminati.")
