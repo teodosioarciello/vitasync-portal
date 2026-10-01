@@ -86,6 +86,7 @@ async def lifespan(app: FastAPI):
     logger.info("Arresto applicazione VitaSync Portal API.")
 
 
+from app.api import notifications
 app = FastAPI(
     title="VitaSync Portal API",
     version="0.1.0",
@@ -194,6 +195,7 @@ app.include_router(lab_tests.router)
 app.include_router(medicines.router)
 app.include_router(therapies.router)
 app.include_router(reminders.router)
+app.include_router(notifications.router, prefix="/api/notifications", tags=["notifications"])
 
 
 @app.get("/health")

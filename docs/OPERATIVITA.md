@@ -530,3 +530,68 @@ Prerequisiti operativi:
 - stack `vitasync-portal` raggiungibile;
 - backend image disponibile;
 - per SMTP reale, variabili d'ambiente configurate nel compose/env corretto.
+
+<!-- B-STEP4C-FRONTEND-NOTIFICATIONS-SECTION -->
+### 7.7 Frontend stato notifiche - Sprint B Step 4C
+
+Dallo Sprint B Step 4C esiste una pagina frontend `Notifiche` accessibile da:
+
+    /notifications
+
+e dal link "Notifiche" nella dashboard.
+
+La pagina chiama l'endpoint read-only:
+
+    GET /api/notifications?limit=100
+
+L'endpoint legge soltanto la tabella `notification_logs` filtrando per:
+
+    user_id = utente corrente
+
+Non invia email.
+Non abilita SMTP.
+Non elimina dati.
+Non modifica retention.
+Non tocca documenti o cestino.
+
+Filtri supportati dall'endpoint:
+
+    GET /api/notifications?limit=50&status=sent
+    GET /api/notifications?limit=50&event=reminder_due
+    GET /api/notifications?limit=50&channel=console
+
+Campi restituiti:
+
+    id
+    reminder_id
+    patient_id
+    user_id
+    channel
+    event
+    status
+    recipient
+    subject
+    error
+    scheduled_for
+    sent_at
+    created_at
+    metadata_json
+
+Test deterministico endpoint:
+
+    docker compose exec backend python scripts/test_notifications_endpoint.py
+
+Il test crea una notifica di test, verifica che l'endpoint la restituisca, verifica i filtri e poi elimina la riga di test.
+
+Limitazioni dichiarate di Step 4C:
+
+- non mostra ancora un badge "notificato" dentro ogni singolo promemoria;
+- non permette preferenze utente per canale;
+- non espone push/SMS/provider esterni;
+- non esegue notifiche: legge solo lo storico gia' registrato da Step 4A/4B.
+
+Futura evoluzione possibile:
+
+- Step 4D: badge notificato nella lista promemoria;
+- Step 4E: preferenze utente canale console/smtp;
+- Step 4F: push/webpush solo dopo consenso e privacy review.

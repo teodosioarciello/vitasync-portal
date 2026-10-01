@@ -340,6 +340,13 @@ export default function DashboardPage() {
               Trend esami
             </Link>
 
+            <Link
+              href="/notifications"
+              className="rounded-lg border border-slate-300 px-3 py-2 text-sm hover:bg-slate-100"
+            >
+              Notifiche
+            </Link>
+
             <button
               onClick={onLogout}
               className="rounded-lg border border-slate-300 px-3 py-2 text-sm hover:bg-slate-100"
