@@ -272,3 +272,54 @@ almeno:
 - informativa privacy/termini adeguata.
 
 Finche' il progetto e' in sviluppo, usare fixture sintetiche.
+
+<!-- CLEANUP-TEST-DATA-SECTION -->
+## Igiene dati di test
+
+Durante gli sprint di sviluppo sono stati creati diversi dati di test:
+documenti fixture, medicinali di test, terapie di test, promemoria di test,
+lab-test sintetici e file in `data/documents/_fixtures`.
+
+Per mantenere pulito l'ambiente di sviluppo esiste uno script dedicato:
+
+    docker compose exec backend python scripts/cleanup_test_data.py
+
+Questo comando esegue solo un **dry-run**: elenca cosa verrebbe eliminato,
+ma non elimina nulla.
+
+Per eliminare realmente i dati di test transienti riconosciuti dai pattern:
+
+    docker compose exec backend python scripts/cleanup_test_data.py --execute
+
+I seed/demo fixtures canonici (lab-report-synthetic, ocr-lab-report-synthetic, ocr-synonyms-synthetic, promemoria fixture, terapia sintetica di test) NON vengono eliminati di default. Per includerli:
+
+    docker compose exec backend python scripts/cleanup_test_data.py --include-seed-fixtures --dry-run
+    docker compose exec backend python scripts/cleanup_test_data.py --include-seed-fixtures --execute
+
+La script elimina solo entita' che corrispondono a pattern di test noti, ad esempio:
+
+- titoli documento che iniziano con `TEST C-media`, `TEST retention`, `TEST trend`, `CLEANUP TEST`;
+- storage key in `_fixtures/test-...`, `_fixtures/trend-trash-...`, `_fixtures/retention-...`, `_fixtures/cleanup-test-...`;
+- medicinali/terapie/promemoria con note o titoli di test;
+- lab-test con codici/nomi di test;
+- file orfanti in `data/documents/_fixtures` corrispondenti ai pattern di test.
+
+Importante:
+
+- lo script **non elimina audit log**;
+- lo script **non elimina utenti/pazienti**;
+- lo script **non tocca dati che non corrispondono ai pattern**;
+- prima di usare `--execute` su dati reali o semi-realii, fare backup DB e verificare il dry-run.
+
+Test deterministico:
+
+    docker compose exec backend python scripts/test_cleanup_test_data.py
+
+Il test crea entita' di test ed entita' di controllo, verifica che il dry-run
+non elimini nulla e che l'esecuzione elimini solo le entita' di test.
+
+Dopo un cleanup reale, se servono dati demo, e' possibile rilanciare i seed:
+
+    docker compose exec backend python scripts/seed_fixture.py
+    docker compose exec backend python scripts/seed_ocr_fixture.py
+    docker compose exec backend python scripts/seed_ocr_synonyms_fixture.py
