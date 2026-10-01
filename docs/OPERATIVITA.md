@@ -610,3 +610,23 @@ che restituisce la lista degli ID promemoria notificati per l'utente corrente.
 
 Il badge e' puramente informativo: non invia nulla, non elimina nulla,
 non modifica stati e non abilita SMTP o push.
+
+<!-- SPRINT3-REPORT-SECTION -->
+## 8. Report PDF per consulto medico - Sprint 3
+
+Dallo Sprint 3 esiste una pagina frontend `/report` che permette di generare
+e scaricare un riepilogo PDF dei valori di laboratorio.
+
+Endpoint backend:
+
+    GET /api/reports/medical-summary.pdf?patient_id=<uuid>
+
+Caratteristiche di sicurezza e privacy:
+
+- il PDF viene generato al volo in memoria e NON viene salvato sul server;
+- include SOLO valori con `confirmed_by_user = True`;
+- include SOLO valori provenienti da documenti attivi (`deleted_at IS NULL`);
+- esclude automaticamente documenti nel cestino o eliminati;
+- l'accesso e' limitato ai pazienti della propria famiglia (403 altrimenti);
+- ogni download viene tracciato in audit con action `report.medical_summary_download`;
+- il PDF include un disclaimer esplicito: strumento organizzativo, non diagnostico.

@@ -347,6 +347,13 @@ export default function DashboardPage() {
               Notifiche
             </Link>
 
+            <Link
+              href="/report"
+              className="rounded-lg border border-slate-300 px-3 py-2 text-sm hover:bg-slate-100"
+            >
+              Report PDF
+            </Link>
+
             <button
               onClick={onLogout}
               className="rounded-lg border border-slate-300 px-3 py-2 text-sm hover:bg-slate-100"
