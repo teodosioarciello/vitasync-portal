@@ -438,3 +438,95 @@ Futura evoluzione:
 - Step 4B scheduler;
 - Step 4C preferenze utente e UI;
 - Step 4D push/SMS/provider esterni solo dopo consenso e privacy review.
+
+<!-- B-STEP4B-SCHEDULER-SECTION -->
+### 7.6 Scheduler notifiche sicuro - Sprint B Step 4B
+
+Dallo Sprint B Step 4B esiste un wrapper PowerShell schedulabile:
+
+    scripts\send-due-reminders.ps1
+
+Il wrapper esegue internamente:
+
+    docker compose run --rm backend python scripts/send_due_reminders.py
+
+Comportamento di default:
+
+- dry-run;
+- nessuna notifica inviata;
+- nessun `notification_log` creato;
+- limite default 100 promemoria.
+
+Esempio dry-run:
+
+    powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\send-due-reminders.ps1
+
+Per eseguire realmente le notifiche serve il flag esplicito `-Execute`:
+
+    powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\send-due-reminders.ps1 -Execute
+
+Con canale console, che e' il default sicuro:
+
+- non viene inviata alcuna email reale;
+- il messaggio viene stampato nei log/stdout;
+- viene registrato un riga in `notification_logs` con status `sent`.
+
+Con canale SMTP, solo se configurato esplicitamente:
+
+- possono partire email reali;
+- richiede `NOTIFICATION_CHANNEL=smtp`;
+- richiede `NOTIFICATIONS_ENABLED=true`;
+- richiede `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM`.
+
+Parametri wrapper:
+
+    -Execute
+        Esegue realmente la notifica. Senza questo flag il wrapper fa dry-run.
+
+    -Limit <n>
+        Numero massimo di promemoria da processare. Default: 100.
+
+    -LogFile <path>
+        Salva l'output del wrapper in un file, appendendo se esiste.
+
+Esempio con limite e log:
+
+    powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\send-due-reminders.ps1 -Execute -Limit 50 -LogFile "$env:TEMP\vitasync-reminders.log"
+
+Schedulerazione consigliata in sviluppo:
+
+- schedulare solo dry-run;
+- eseguire `-Execute` manualmente;
+- oppure schedulare `-Execute` solo con canale console;
+- non schedulare `-Execute` con SMTP senza backup, monitoring e revisione esplicita.
+
+Esempio Task Scheduler Windows per dry-run giornaliero:
+
+    schtasks /Create /TN "VitaSync Reminder Notifications Dry-Run" /TR "powershell -NoProfile -ExecutionPolicy Bypass -File D:\RD\VitaSync\vitasync-portal\scripts\send-due-reminders.ps1 -Limit 100" /SC DAILY /ST 03:30 /F
+
+Verifica attivita':
+
+    schtasks /Query /TN "VitaSync Reminder Notifications Dry-Run" /V /FO LIST
+
+Rimuovi attivita':
+
+    schtasks /Delete /TN "VitaSync Reminder Notifications Dry-Run" /F
+
+Esempio Task Scheduler per execute console, solo se consapevole:
+
+    schtasks /Create /TN "VitaSync Reminder Notifications Execute Console" /TR "powershell -NoProfile -ExecutionPolicy Bypass -File D:\RD\VitaSync\vitasync-portal\scripts\send-due-reminders.ps1 -Execute -Limit 100" /SC DAILY /ST 03:35 /F
+
+Importante:
+
+- il wrapper non chiama `purge_expired_trash.py`;
+- il wrapper non modifica retention;
+- il wrapper non tocca documenti;
+- il wrapper non abilita SMTP da solo;
+- se usi `-LogFile`, preferisci un percorso fuori dal repository oppure assicurati che `logs/` sia ignorato da Git.
+
+Prerequisiti operativi:
+
+- Docker Desktop attivo;
+- stack `vitasync-portal` raggiungibile;
+- backend image disponibile;
+- per SMTP reale, variabili d'ambiente configurate nel compose/env corretto.
