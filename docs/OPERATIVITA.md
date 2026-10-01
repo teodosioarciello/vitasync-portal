@@ -89,7 +89,7 @@ docker compose up -d backend frontend
 
 Sostituisci il nome del file dump con quello reale.
 
-## 5. Cancellazione documenti
+## 5. Cancellazione documenti e retention
 
 Dallo Sprint C-media Step 6A la cancellazione documento e' soft-delete:
 
@@ -107,12 +107,65 @@ Endpoint cestino:
 
 L'eliminazione definitiva e' consentita solo su documenti gia' soft-deleted. Questo riduce il rischio di cancellazione accidentale, ma resta un hard delete irreversibile quando eseguito dal cestino.
 
-Prima di usare dati reali, considerare comunque:
+### 5.1 Retention e purge del cestino
+
+Dallo Sprint C-media Step 7 esiste uno script manuale di retention/purge:
+
+```powershell
+docker compose exec backend python scripts/purge_expired_trash.py --days 30 --dry-run
+docker compose exec backend python scripts/purge_expired_trash.py --days 30
+```
+
+Default retention: 30 giorni.
+
+Puoi configurarla:
+
+- con environment variable:
+
+```text
+TRASH_RETENTION_DAYS=30
+```
+
+- oppure con parametro CLI:
+
+```powershell
+--days 30
+```
+
+Lo script elimina solo documenti con:
+
+```text
+deleted_at IS NOT NULL
+AND deleted_at <= now() - retention_days
+```
+
+Non tocca documenti attivi.
+
+Per ogni documento purgato registra audit:
+
+```text
+action = document.retention_purge
+method = SYSTEM
+path = scripts/purge_expired_trash.py
+user_id = null
+extra = document_id=...;patient_id=...;uploaded_by_user_id=...;deleted_at=...;file_existed=...
+```
+
+`user_id` e' nullo perche' l'azione e' di sistema, non di un utente autenticato.
+
+Prima di eseguire purge su dati reali:
 
 - backup DB recente;
 - eventuale backup `data/`;
-- policy di retention futura;
-- UI cestino nel frontend, prevista nello Sprint C-media Step 6B.
+- dry-run preliminare;
+- verifica che i documenti candidabili siano effettivamente solo quelli attesi.
+
+Futura evoluzione possibile:
+
+- scheduler automatico;
+- UI “Svuota cestino”;
+- retention differenziata per paziente/tenant;
+- notifiche prima della purge definitiva.
 
 ## 6. Audit log
 
