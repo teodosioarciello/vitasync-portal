@@ -323,3 +323,118 @@ Dopo un cleanup reale, se servono dati demo, e' possibile rilanciare i seed:
     docker compose exec backend python scripts/seed_fixture.py
     docker compose exec backend python scripts/seed_ocr_fixture.py
     docker compose exec backend python scripts/seed_ocr_synonyms_fixture.py
+
+<!-- B-STEP4A-NOTIFICATIONS-SECTION -->
+## 7. Notifiche promemoria - Sprint B Step 4A
+
+Dallo Sprint B Step 4A esiste un servizio backend per notificare promemoria scaduti.
+
+Questo step NON include:
+
+- push notification;
+- SMS;
+- WhatsApp;
+- scheduler automatico;
+- UI frontend per preferenze di notifica.
+
+Include invece:
+
+- tabella `notification_logs`;
+- servizio `app/services/reminder_notifications.py`;
+- script manuale `scripts/send_due_reminders.py`;
+- test deterministico `scripts/test_notifications_reminder_due.py`;
+- canale `console` di default;
+- canale `smtp` opzionale.
+
+### 7.1 Canale console
+
+Default sicuro:
+
+    NOTIFICATION_CHANNEL=console
+    NOTIFICATIONS_ENABLED=true
+
+Con canale console:
+
+- non viene inviata alcuna email reale;
+- il messaggio viene stampato nei log/stdout;
+- viene comunque registrato un riga in `notification_logs` con status `sent`.
+
+Esegui dry-run:
+
+    docker compose exec backend python scripts/send_due_reminders.py --dry-run
+
+Esegui invio/registrazione console:
+
+    docker compose exec backend python scripts/send_due_reminders.py
+
+### 7.2 Canale SMTP
+
+Per abilitare email reali, configurare almeno:
+
+    NOTIFICATION_CHANNEL=smtp
+    NOTIFICATIONS_ENABLED=true
+    SMTP_HOST=smtp.example.com
+    SMTP_PORT=587
+    SMTP_USER=utente-smtp
+    SMTP_PASSWORD=password-smtp
+    SMTP_FROM=noreply@example.com
+
+Opzionali:
+
+    SMTP_STARTTLS=true
+    SMTP_SSL=false
+    SMTP_TIMEOUT_SECONDS=30
+    PUBLIC_APP_URL=http://localhost:3001
+
+Importante:
+
+- se `NOTIFICATIONS_ENABLED` non e` true, il canale SMTP non invia e registra `skipped`;
+- prima di usare SMTP con dati reali, fare backup DB;
+- usare un mailbox/test dedicata prima della produzione;
+- non mettere credenziali reali nel repository;
+- usare `.env` locale o secret manager.
+
+### 7.3 Tabella notification_logs
+
+Ogni notificazione registra:
+
+    channel = console | smtp
+    event = reminder_due
+    status = sent | failed | skipped
+    recipient
+    subject
+    error
+    scheduled_for
+    sent_at
+    metadata_json
+
+Esiste un indice unico parziale che impedisce di registrare due volte lo stesso `reminder_id + event` con status `sent`.
+
+Questo riduce il rischio di doppioni se lo script viene eseguito piu' volte.
+
+### 7.4 Test deterministico
+
+    docker compose exec backend python scripts/test_notifications_reminder_due.py
+
+Il test crea promemoria di test isolati e verifica che:
+
+- solo il promemoria pendente scaduto venga notificato;
+- il promemoria futuro non venga notificato;
+- il promemoria completato non venga notificato;
+- il secondo run non duplichi;
+- venga creato un log `sent`.
+
+### 7.5 Policy operativa consigliata
+
+Per ora:
+
+- eseguire `send_due_reminders.py` manualmente;
+- usare console in sviluppo;
+- usare SMTP solo con backup e test dedicati;
+- non schedulare automaticamente fino a Step 4B.
+
+Futura evoluzione:
+
+- Step 4B scheduler;
+- Step 4C preferenze utente e UI;
+- Step 4D push/SMS/provider esterni solo dopo consenso e privacy review.
