@@ -26,6 +26,7 @@ type DocumentItem = {
   title: string;
   document_type: string;
   processing_status: string;
+  deleted_at?: string | null;
 };
 
 type Reminder = {
@@ -44,6 +45,7 @@ export default function DashboardPage() {
   const [user, setUser] = useState<User | null>(null);
   const [patient, setPatient] = useState<Patient | null>(null);
   const [documents, setDocuments] = useState<DocumentItem[]>([]);
+  const [trashDocuments, setTrashDocuments] = useState<DocumentItem[]>([]);
   const [reminders, setReminders] = useState<Reminder[]>([]);
   const [file, setFile] = useState<File | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -51,6 +53,24 @@ export default function DashboardPage() {
   const [reminderError, setReminderError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [restoringId, setRestoringId] = useState<string | null>(null);
+  const [permanentDeletingId, setPermanentDeletingId] = useState<string | null>(null);
+
+  async function loadActiveAndTrash(p: Patient) {
+    const docs = await apiFetch<DocumentItem[]>(
+      `/api/documents?patient_id=${p.id}`
+    );
+    setDocuments(docs);
+
+    try {
+      const trash = await apiFetch<DocumentItem[]>(
+        `/api/documents/trash?patient_id=${p.id}`
+      );
+      setTrashDocuments(trash);
+    } catch {
+      setTrashDocuments([]);
+    }
+  }
 
   useEffect(() => {
     async function load() {
@@ -61,10 +81,7 @@ export default function DashboardPage() {
         const myPatient = await apiFetch<Patient>("/api/patients/me");
         setPatient(myPatient);
 
-        const docs = await apiFetch<DocumentItem[]>(
-          `/api/documents?patient_id=${myPatient.id}`
-        );
-        setDocuments(docs);
+        await loadActiveAndTrash(myPatient);
 
         try {
           const rems = await apiFetch<Reminder[]>(
@@ -96,7 +113,9 @@ export default function DashboardPage() {
 
   async function onUpload(e: FormEvent) {
     e.preventDefault();
-    if (!file || !patient) return;
+
+    const activePatient = patient;
+    if (!file || !activePatient) return;
 
     setLoading(true);
     setError(null);
@@ -109,7 +128,7 @@ export default function DashboardPage() {
       formData.append("file", file);
 
       const res = await fetch(
-        `${API_BASE}/api/documents/upload?patient_id=${patient.id}`,
+        `${API_BASE}/api/documents/upload?patient_id=${activePatient.id}`,
         {
           method: "POST",
           credentials: "include",
@@ -141,11 +160,7 @@ export default function DashboardPage() {
 
       setMessage(`Documento caricato: ${data.title}`);
 
-      const docs = await apiFetch<DocumentItem[]>(
-        `/api/documents?patient_id=${patient.id}`
-      );
-
-      setDocuments(docs);
+      await loadActiveAndTrash(activePatient);
       setFile(null);
     } catch (err: any) {
       setError(err.message || "Upload fallito.");
@@ -155,8 +170,11 @@ export default function DashboardPage() {
   }
 
   async function onDeleteDocument(doc: DocumentItem) {
+    const activePatient = patient;
+    if (!activePatient) return;
+
     const ok = window.confirm(
-      `Eliminare il documento "${doc.title}"? L'operazione non e' reversibile.`
+      `Eliminare il documento "${doc.title}"? Verra' spostato nel cestino.`
     );
 
     if (!ok) return;
@@ -173,12 +191,80 @@ export default function DashboardPage() {
         }
       );
 
-      setDocuments((prev) => prev.filter((x) => x.id !== doc.id));
-      setMessage(res.detail || "Documento eliminato.");
+      await loadActiveAndTrash(activePatient);
+      setMessage(res.detail || "Documento spostato nel cestino.");
     } catch (err: any) {
-      setError(err.message || "Eliminazione documento fallita.");
+      setError(err.message || "Spostamento nel cestino fallito.");
     } finally {
       setDeletingId(null);
+    }
+  }
+
+  async function onRestoreDocument(doc: DocumentItem) {
+    const activePatient = patient;
+    if (!activePatient) return;
+
+    const ok = window.confirm(
+      `Ripristinare il documento "${doc.title}"?`
+    );
+
+    if (!ok) return;
+
+    setRestoringId(doc.id);
+    setError(null);
+    setMessage(null);
+
+    try {
+      const res = await apiFetch<{ detail: string }>(
+        `/api/documents/${doc.id}/restore`,
+        {
+          method: "POST",
+        }
+      );
+
+      await loadActiveAndTrash(activePatient);
+      setMessage(res.detail || "Documento ripristinato dal cestino.");
+    } catch (err: any) {
+      setError(err.message || "Ripristino documento fallito.");
+    } finally {
+      setRestoringId(null);
+    }
+  }
+
+  async function onPermanentDeleteDocument(doc: DocumentItem) {
+    const activePatient = patient;
+    if (!activePatient) return;
+
+    const first = window.confirm(
+      `Eliminare definitivamente il documento "${doc.title}"? L'operazione non e' reversibile.`
+    );
+
+    if (!first) return;
+
+    const second = window.confirm(
+      "Conferma definitiva: il documento e il file verranno eliminati per sempre. Procedere?"
+    );
+
+    if (!second) return;
+
+    setPermanentDeletingId(doc.id);
+    setError(null);
+    setMessage(null);
+
+    try {
+      const res = await apiFetch<{ detail: string }>(
+        `/api/documents/${doc.id}/permanent`,
+        {
+          method: "DELETE",
+        }
+      );
+
+      await loadActiveAndTrash(activePatient);
+      setMessage(res.detail || "Documento eliminato definitivamente.");
+    } catch (err: any) {
+      setError(err.message || "Eliminazione definitiva fallita.");
+    } finally {
+      setPermanentDeletingId(null);
     }
   }
 
@@ -262,6 +348,18 @@ export default function DashboardPage() {
             </button>
           </nav>
         </header>
+
+        {message && (
+          <div className="text-sm text-green-800 bg-green-50 border border-green-200 rounded-lg p-3">
+            {message}
+          </div>
+        )}
+
+        {error && (
+          <div className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg p-3">
+            {error}
+          </div>
+        )}
 
         <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Link
@@ -434,18 +532,6 @@ export default function DashboardPage() {
               {loading ? "Caricamento..." : "Carica referto"}
             </button>
           </form>
-
-          {message && (
-            <div className="mt-4 text-sm text-green-800 bg-green-50 border border-green-200 rounded-lg p-3">
-              {message}
-            </div>
-          )}
-
-          {error && (
-            <div className="mt-4 text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg p-3">
-              {error}
-            </div>
-          )}
         </section>
 
         <section className="bg-white rounded-2xl shadow p-6">
@@ -494,12 +580,78 @@ export default function DashboardPage() {
         </section>
 
         <section className="bg-white rounded-2xl shadow p-6">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
+            <h2 className="text-lg font-semibold">Cestino documenti</h2>
+            <p className="text-sm text-slate-600">
+              {trashDocuments.length === 0
+                ? "Nessun documento nel cestino."
+                : `${trashDocuments.length} documenti nel cestino.`}
+            </p>
+          </div>
+
+          {!patient ? (
+            <p className="text-sm text-slate-600">Caricamento paziente...</p>
+          ) : trashDocuments.length === 0 ? (
+            <p className="text-sm text-slate-600">
+              I documenti eliminati compariranno qui e potranno essere
+              ripristinati o eliminati definitivamente.
+            </p>
+          ) : (
+            <ul className="divide-y divide-slate-200">
+              {trashDocuments.map((doc) => (
+                <li
+                  key={doc.id}
+                  className="py-3 flex flex-col md:flex-row md:items-center md:justify-between gap-3"
+                >
+                  <div>
+                    <p className="font-medium">{doc.title}</p>
+                    <p className="text-xs text-slate-500">
+                      {doc.document_type} - {doc.processing_status}
+                    </p>
+                    <p className="text-xs text-slate-500">
+                      Eliminato il{" "}
+                      {doc.deleted_at ? formatDateTime(doc.deleted_at) : "—"}
+                    </p>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      onClick={() => void onRestoreDocument(doc)}
+                      disabled={
+                        restoringId === doc.id ||
+                        permanentDeletingId === doc.id
+                      }
+                      className="rounded-lg border border-emerald-200 px-3 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-50 disabled:opacity-50"
+                    >
+                      {restoringId === doc.id ? "Ripristino..." : "Ripristina"}
+                    </button>
+
+                    <button
+                      onClick={() => void onPermanentDeleteDocument(doc)}
+                      disabled={
+                        permanentDeletingId === doc.id ||
+                        restoringId === doc.id
+                      }
+                      className="rounded-lg border border-red-300 px-3 py-1 text-xs font-medium text-red-700 hover:bg-red-50 disabled:opacity-50"
+                    >
+                      {permanentDeletingId === doc.id
+                        ? "Elimino..."
+                        : "Elimina definitivamente"}
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        <section className="bg-white rounded-2xl shadow p-6">
           <h2 className="text-lg font-semibold mb-2">Prossimi step</h2>
           <ul className="list-disc pl-5 text-sm text-slate-700 space-y-1">
-            <li>Soft-delete o cestino con ripristino.</li>
+            <li>Retention automatica e purge pianificata del cestino.</li>
             <li>Email/push per promemoria.</li>
             <li>Ricorrenze avanzate.</li>
-            <li>Collegamento ricetta -&gt; terapia.</li>
+            <li>Collegamento ricetta -&gt; terapia piu' ricco.</li>
             <li>Report PDF per il consulto medico.</li>
           </ul>
         </section>
