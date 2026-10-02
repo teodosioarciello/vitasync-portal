@@ -741,3 +741,45 @@ Test deterministico:
 Il test verifica con run sequenziali: skip senza log quando disabilitato,
 sent con console, failed con smtp senza host, e che lo skip non consumi
 il promemoria (run successiva con console lo notifica).
+
+<!-- DR-DRILL-POST-STEP4E -->
+### 9.1 Drill DR post Step 4E / refinement
+
+Dopo Sprint B Step 4E e il refinement UI, il drill di restore verifica anche:
+
+- presenza della tabella `user_settings`;
+- colonne core:
+  - `user_id`;
+  - `notification_channel`;
+  - `notifications_enabled`;
+  - `smtp_host`;
+  - `smtp_port`;
+  - `smtp_user`;
+  - `smtp_from`;
+  - `smtp_use_tls`;
+- presenza di almeno una colonna password SMTP, ad esempio:
+  - `smtp_password`;
+  - oppure `smtp_password_encrypted`, se e' stata introdotta cifratura;
+- assenza di righe orfane `user_settings` rispetto a `users`;
+- confronto conteggi tra production e database drill isolato.
+
+Il drill NON stampa segreti.  
+Il drill NON testa la decifratura Fernet end-to-end: verifica ripristino strutturale e integrita' DB.
+
+Comando:
+
+    powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\drill-restore.ps1
+
+Per ispezione manuale in caso di FAIL:
+
+    powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\drill-restore.ps1 -Keep
+
+Poi:
+
+    docker compose exec postgres psql -U vitasync -d vitasync_drill -c "\dt"
+    docker compose exec postgres psql -U vitasync -d vitasync_drill -c "select column_name, data_type from information_schema.columns where table_name='user_settings' order by ordinal_position;"
+
+Cleanup manuale dopo -Keep:
+
+    docker compose exec postgres psql -U vitasync -d postgres -c "DROP DATABASE IF EXISTS vitasync_drill;"
+    docker compose exec postgres rm -f /tmp/vitasync-drill.dump
