@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { apiFetch } from "@/lib/api";
 import { formatDateTime } from "@/lib/format";
+import { Alert, Button, Card, EmptyState } from "@/components/ui";
 
 type Patient = {
   id: string;
@@ -133,9 +134,9 @@ export default function MedicinesPage() {
   }
 
   return (
-    <main className="min-h-screen p-6">
+    <main className="min-h-screen p-6 bg-slate-50">
       <div className="max-w-5xl mx-auto space-y-6">
-        <header className="flex items-center justify-between">
+        <header className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
             <Link
               href="/dashboard"
@@ -143,37 +144,35 @@ export default function MedicinesPage() {
             >
               &larr; Torna alla dashboard
             </Link>
-            <h1 className="text-2xl font-bold mt-1">Medicinali</h1>
+            <h1 className="text-2xl font-bold mt-1 text-slate-900">
+              Medicinali
+            </h1>
             <p className="text-sm text-slate-600">
               Elenco farmaci disponibili per {patient?.display_name || "..."}.
             </p>
           </div>
 
-          <button
+          <Button
+            variant="secondary"
             onClick={() => void load()}
             disabled={loading}
-            className="rounded-lg border border-slate-300 px-4 py-2 text-sm hover:bg-slate-100 disabled:opacity-60"
+            loading={loading}
           >
             {loading ? "Caricamento..." : "Ricarica"}
-          </button>
+          </Button>
         </header>
 
-        {error && (
-          <div className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg p-3">
-            {error}
-          </div>
-        )}
+        {error && <Alert variant="error">{error}</Alert>}
 
-        {message && (
-          <div className="text-sm text-green-800 bg-green-50 border border-green-200 rounded-lg p-3">
-            {message}
-          </div>
-        )}
+        {message && <Alert variant="success">{message}</Alert>}
 
-        <section className="bg-white rounded-2xl shadow p-6">
+        <Card>
           <h2 className="text-lg font-semibold mb-4">Nuovo medicinale</h2>
 
-          <form onSubmit={onCreate} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <form
+            onSubmit={onCreate}
+            className="grid grid-cols-1 md:grid-cols-2 gap-4"
+          >
             <div>
               <label className="block text-sm font-medium mb-1">Nome *</label>
               <input
@@ -238,28 +237,28 @@ export default function MedicinesPage() {
             </div>
 
             <div className="md:col-span-2">
-              <button
+              <Button
                 type="submit"
-                disabled={saving || !form.name.trim()}
-                className="rounded-lg bg-slate-900 text-white px-4 py-2 text-sm font-medium hover:bg-slate-800 disabled:opacity-60"
+                variant="primary"
+                loading={saving}
+                disabled={!form.name.trim()}
               >
                 {saving ? "Creazione..." : "Crea medicinale"}
-              </button>
+              </Button>
             </div>
           </form>
-        </section>
+        </Card>
 
-        <section className="bg-white rounded-2xl shadow overflow-hidden">
-          <div className="p-6 border-b border-slate-200">
-            <h2 className="text-lg font-semibold">Elenco medicinali</h2>
-          </div>
+        <Card>
+          <h2 className="text-lg font-semibold mb-4">Elenco medicinali</h2>
 
           {loading ? (
-            <div className="p-6 text-sm text-slate-600">Caricamento...</div>
+            <p className="text-sm text-slate-600">Caricamento...</p>
           ) : items.length === 0 ? (
-            <div className="p-6 text-sm text-slate-600">
-              Nessun medicinale presente.
-            </div>
+            <EmptyState
+              title="Nessun medicinale"
+              description="Nessun medicinale presente."
+            />
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
@@ -294,13 +293,15 @@ export default function MedicinesPage() {
                         {formatDateTime(item.updated_at)}
                       </td>
                       <td className="px-4 py-3">
-                        <button
+                        <Button
+                          size="sm"
+                          variant="dangerOutline"
                           onClick={() => void onDelete(item)}
                           disabled={busyId === item.id}
-                          className="rounded-lg border border-red-200 px-3 py-1 text-xs text-red-700 hover:bg-red-50 disabled:opacity-50"
+                          loading={busyId === item.id}
                         >
-                          {busyId === item.id ? "..." : "Elimina"}
-                        </button>
+                          Elimina
+                        </Button>
                       </td>
                     </tr>
                   ))}
@@ -308,7 +309,7 @@ export default function MedicinesPage() {
               </table>
             </div>
           )}
-        </section>
+        </Card>
 
         <footer className="text-xs text-slate-500">
           VitaSync Portal e&apos; uno strumento di organizzazione
