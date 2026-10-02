@@ -7,8 +7,8 @@ import {
   formatDate,
   humanFrequency,
   humanTherapyStatus,
-  therapyStatusClass,
 } from "@/lib/format";
+import { Alert, Badge, Button, Card, EmptyState } from "@/components/ui";
 
 type Patient = {
   id: string;
@@ -52,6 +52,28 @@ const emptyTherapyForm: Record<string, string> = {
   end_date: "",
   notes: "",
 };
+
+function therapyBadgeVariant(
+  status: string
+): "default" | "success" | "warning" | "danger" | "info" {
+  if (status === "active") {
+    return "success";
+  }
+
+  if (status === "paused") {
+    return "warning";
+  }
+
+  if (status === "completed") {
+    return "info";
+  }
+
+  if (status === "cancelled") {
+    return "danger";
+  }
+
+  return "default";
+}
 
 export default function TherapiesPage() {
   const [patient, setPatient] = useState<Patient | null>(null);
@@ -160,9 +182,9 @@ export default function TherapiesPage() {
   }
 
   return (
-    <main className="min-h-screen p-6">
+    <main className="min-h-screen p-6 bg-slate-50">
       <div className="max-w-6xl mx-auto space-y-6">
-        <header className="flex items-center justify-between">
+        <header className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
             <Link
               href="/dashboard"
@@ -170,41 +192,34 @@ export default function TherapiesPage() {
             >
               &larr; Torna alla dashboard
             </Link>
-            <h1 className="text-2xl font-bold mt-1">Terapie</h1>
+            <h1 className="text-2xl font-bold mt-1 text-slate-900">Terapie</h1>
             <p className="text-sm text-slate-600">
               Terapie farmacologiche per {patient?.display_name || "..."}.
             </p>
           </div>
 
-          <button
+          <Button
+            variant="secondary"
             onClick={() => void load()}
             disabled={loading}
-            className="rounded-lg border border-slate-300 px-4 py-2 text-sm hover:bg-slate-100 disabled:opacity-60"
+            loading={loading}
           >
             {loading ? "Caricamento..." : "Ricarica"}
-          </button>
+          </Button>
         </header>
 
-        {error && (
-          <div className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg p-3">
-            {error}
-          </div>
-        )}
+        {error && <Alert variant="error">{error}</Alert>}
 
-        {message && (
-          <div className="text-sm text-green-800 bg-green-50 border border-green-200 rounded-lg p-3">
-            {message}
-          </div>
-        )}
+        {message && <Alert variant="success">{message}</Alert>}
 
-        <section className="bg-white rounded-2xl shadow p-6">
+        <Card>
           <h2 className="text-lg font-semibold mb-4">Nuova terapia</h2>
 
           {medicines.length === 0 ? (
-            <div className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg p-3">
+            <Alert variant="warning">
               Prima di creare una terapia, aggiungi almeno un medicinale nella
               pagina Medicinali.
-            </div>
+            </Alert>
           ) : (
             <form
               onSubmit={onCreate}
@@ -372,35 +387,36 @@ export default function TherapiesPage() {
               </div>
 
               <div className="md:col-span-3">
-                <button
+                <Button
                   type="submit"
-                  disabled={saving || !form.medicine_id}
-                  className="rounded-lg bg-slate-900 text-white px-4 py-2 text-sm font-medium hover:bg-slate-800 disabled:opacity-60"
+                  variant="primary"
+                  loading={saving}
+                  disabled={!form.medicine_id}
                 >
                   {saving ? "Creazione..." : "Crea terapia"}
-                </button>
+                </Button>
               </div>
             </form>
           )}
-        </section>
+        </Card>
 
         <section className="space-y-4">
           <h2 className="text-lg font-semibold">Elenco terapie</h2>
 
           {loading ? (
-            <div className="bg-white rounded-2xl shadow p-6 text-sm text-slate-600">
-              Caricamento...
-            </div>
+            <Card>
+              <p className="text-sm text-slate-600">Caricamento...</p>
+            </Card>
           ) : items.length === 0 ? (
-            <div className="bg-white rounded-2xl shadow p-6 text-sm text-slate-600">
-              Nessuna terapia presente.
-            </div>
+            <Card>
+              <EmptyState
+                title="Nessuna terapia"
+                description="Nessuna terapia presente."
+              />
+            </Card>
           ) : (
             items.map((t) => (
-              <article
-                key={t.id}
-                className="bg-white rounded-2xl shadow p-6 space-y-4"
-              >
+              <Card key={t.id} className="space-y-4">
                 <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
                   <div>
                     <h3 className="text-lg font-semibold">
@@ -413,13 +429,12 @@ export default function TherapiesPage() {
                     </p>
                   </div>
 
-                  <span
-                    className={`inline-block px-3 py-1 rounded-full border text-xs font-medium ${therapyStatusClass(
-                      t.status
-                    )}`}
+                  <Badge
+                    variant={therapyBadgeVariant(t.status)}
+                    className="shrink-0"
                   >
                     {humanTherapyStatus(t.status)}
-                  </span>
+                  </Badge>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
@@ -458,47 +473,51 @@ export default function TherapiesPage() {
                 )}
 
                 <div className="flex flex-wrap gap-2">
-                  <button
+                  <Button
+                    size="sm"
+                    variant="successOutline"
                     onClick={() => void updateStatus(t, "active")}
                     disabled={busyId === t.id || t.status === "active"}
-                    className="rounded-lg border border-green-200 px-3 py-1 text-xs text-green-800 hover:bg-green-50 disabled:opacity-50"
                   >
                     Riattiva
-                  </button>
+                  </Button>
 
-                  <button
+                  <Button
+                    size="sm"
+                    variant="warningOutline"
                     onClick={() => void updateStatus(t, "paused")}
                     disabled={busyId === t.id || t.status === "paused"}
-                    className="rounded-lg border border-amber-200 px-3 py-1 text-xs text-amber-800 hover:bg-amber-50 disabled:opacity-50"
                   >
                     Pausa
-                  </button>
+                  </Button>
 
-                  <button
+                  <Button
+                    size="sm"
+                    variant="secondary"
                     onClick={() => void updateStatus(t, "completed")}
                     disabled={
                       busyId === t.id ||
                       t.status === "completed" ||
                       t.status === "cancelled"
                     }
-                    className="rounded-lg border border-slate-300 px-3 py-1 text-xs text-slate-700 hover:bg-slate-100 disabled:opacity-50"
                   >
                     Completa
-                  </button>
+                  </Button>
 
-                  <button
+                  <Button
+                    size="sm"
+                    variant="dangerOutline"
                     onClick={() => void updateStatus(t, "cancelled")}
                     disabled={
                       busyId === t.id ||
                       t.status === "completed" ||
                       t.status === "cancelled"
                     }
-                    className="rounded-lg border border-red-200 px-3 py-1 text-xs text-red-700 hover:bg-red-50 disabled:opacity-50"
                   >
                     Annulla
-                  </button>
+                  </Button>
                 </div>
-              </article>
+              </Card>
             ))
           )}
         </section>
