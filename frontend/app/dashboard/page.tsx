@@ -18,6 +18,47 @@ type Reminder = {
   status: string;
 };
 
+// Nav dashboard: solo pagine statiche raggiungibili direttamente.
+// Le route dinamiche tipo /documents/[documentId]/review non vanno qui:
+// necessitano di un ID e vengono raggiunte dalle pagine che lo conoscono.
+const navItems: { href: string; title: string; description: string }[] = [
+  {
+    href: "/reminders",
+    title: "Promemoria",
+    description: "Gestisci promemoria per farmaci e visite.",
+  },
+  {
+    href: "/medicines",
+    title: "Medicinali",
+    description: "Elenco dei farmaci disponibili.",
+  },
+  {
+    href: "/therapies",
+    title: "Terapie",
+    description: "Piani terapeutici collegati ai farmaci.",
+  },
+  {
+    href: "/trend",
+    title: "Trend esami",
+    description: "Andamento dei tuoi esami nel tempo.",
+  },
+  {
+    href: "/notifications",
+    title: "Notifiche",
+    description: "Storico delle notifiche inviate.",
+  },
+  {
+    href: "/report",
+    title: "Report PDF",
+    description: "Riepilogo da portare al medico.",
+  },
+  {
+    href: "/settings",
+    title: "Impostazioni",
+    description: "Preferenze di notifica e canale.",
+  },
+];
+
 export default function DashboardPage() {
   const router = useRouter();
   const [patient, setPatient] = useState<Patient | null>(null);
@@ -42,14 +83,16 @@ export default function DashboardPage() {
         setLoading(false);
       }
     }
+
     load();
   }, []);
 
   async function handleLogout() {
     setLoggingOut(true);
+
     try {
       await apiFetch("/api/auth/logout", { method: "POST" }).catch(() => {});
-      
+
       if (typeof window !== "undefined") {
         localStorage.removeItem("token");
         localStorage.removeItem("user");
@@ -67,7 +110,7 @@ export default function DashboardPage() {
   return (
     <main className="min-h-screen p-6 bg-slate-50">
       <div className="max-w-6xl mx-auto space-y-6">
-        <header className="flex items-center justify-between">
+        <header className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold text-slate-900">
               Ciao, {patient?.display_name || "..."}
@@ -76,10 +119,10 @@ export default function DashboardPage() {
               Benvenuto nel tuo portale sanitario personale.
             </p>
           </div>
-          
-          <Button 
-            variant="ghost" 
-            size="sm" 
+
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={handleLogout}
             loading={loggingOut}
           >
@@ -105,14 +148,18 @@ export default function DashboardPage() {
               <h2 className="text-xl font-semibold text-slate-900 mb-4">
                 Promemoria in scadenza
               </h2>
+
               {reminders.length === 0 ? (
                 <Card>
                   <EmptyState
                     title="Nessun promemoria"
                     description="Non hai promemoria pendenti. Creane uno per iniziare."
                     action={
-                      <Link href="/reminders">
-                        <Button>Vai ai promemoria</Button>
+                      <Link
+                        href="/reminders"
+                        className="inline-flex items-center justify-center rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
+                      >
+                        Vai ai promemoria
                       </Link>
                     }
                   />
@@ -123,12 +170,17 @@ export default function DashboardPage() {
                     <Card key={r.id} padding="sm">
                       <div className="flex items-center justify-between">
                         <div>
-                          <h3 className="font-medium text-slate-900">{r.title}</h3>
+                          <h3 className="font-medium text-slate-900">
+                            {r.title}
+                          </h3>
                           <p className="text-xs text-slate-600 mt-1">
                             {new Date(r.scheduled_at).toLocaleString("it-IT")}
                           </p>
                         </div>
-                        <span className="text-xs text-slate-500">Pendente</span>
+
+                        <span className="text-xs text-slate-500">
+                          Pendente
+                        </span>
                       </div>
                     </Card>
                   ))}
@@ -140,69 +192,28 @@ export default function DashboardPage() {
               <h2 className="text-xl font-semibold text-slate-900 mb-4">
                 Azioni rapide
               </h2>
+
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                <Link href="/reminders">
-                  <Card className="hover:shadow-lg transition-shadow cursor-pointer h-full">
-                    <h3 className="font-semibold text-slate-900 mb-2">
-                      ⏰ Promemoria
-                    </h3>
-                    <p className="text-sm text-slate-600">
-                      Gestisci promemoria per farmaci e visite.
-                    </p>
-                  </Card>
-                </Link>
-
-                <Link href="/trend">
-                  <Card className="hover:shadow-lg transition-shadow cursor-pointer h-full">
-                    <h3 className="font-semibold text-slate-900 mb-2">
-                      📊 Trend esami
-                    </h3>
-                    <p className="text-sm text-slate-600">
-                      Visualizza l'andamento dei tuoi esami nel tempo.
-                    </p>
-                  </Card>
-                </Link>
-
-                <Link href="/notifications">
-                  <Card className="hover:shadow-lg transition-shadow cursor-pointer h-full">
-                    <h3 className="font-semibold text-slate-900 mb-2">
-                      🔔 Notifiche
-                    </h3>
-                    <p className="text-sm text-slate-600">
-                      Storico delle notifiche inviate.
-                    </p>
-                  </Card>
-                </Link>
-
-                <Link href="/report">
-                  <Card className="hover:shadow-lg transition-shadow cursor-pointer h-full">
-                    <h3 className="font-semibold text-slate-900 mb-2">
-                      📋 Report PDF
-                    </h3>
-                    <p className="text-sm text-slate-600">
-                      Genera un riepilogo per il medico.
-                    </p>
-                  </Card>
-                </Link>
-
-                <Link href="/settings">
-                  <Card className="hover:shadow-lg transition-shadow cursor-pointer h-full">
-                    <h3 className="font-semibold text-slate-900 mb-2">
-                      ⚙️ Impostazioni
-                    </h3>
-                    <p className="text-sm text-slate-600">
-                      Configura notifiche e preferenze.
-                    </p>
-                  </Card>
-                </Link>
+                {navItems.map((item) => (
+                  <Link key={item.href} href={item.href}>
+                    <Card className="hover:shadow-lg transition-shadow cursor-pointer h-full">
+                      <h3 className="font-semibold text-slate-900 mb-2">
+                        {item.title}
+                      </h3>
+                      <p className="text-sm text-slate-600">
+                        {item.description}
+                      </p>
+                    </Card>
+                  </Link>
+                ))}
               </div>
             </section>
           </>
         )}
 
         <footer className="text-xs text-slate-500 text-center pt-8">
-          VitaSync Portal è uno strumento di organizzazione personale. Non
-          sostituisce il parere medico.
+          VitaSync Portal e&apos; uno strumento di organizzazione personale.
+          Non sostituisce il parere medico.
         </footer>
       </div>
     </main>
