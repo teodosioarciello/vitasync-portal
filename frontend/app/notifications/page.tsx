@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { apiFetch } from "@/lib/api";
 import { formatDateTime } from "@/lib/format";
+import { Alert, Badge, Card, EmptyState } from "@/components/ui";
 
 type NotificationItem = {
   id: string;
@@ -23,16 +24,16 @@ type NotificationItem = {
   metadata_json: Record<string, unknown>;
 };
 
-function statusClasses(status: string) {
+function statusVariant(status: string): "success" | "danger" | "default" {
   if (status === "sent") {
-    return "border-emerald-200 bg-emerald-50 text-emerald-700";
+    return "success";
   }
 
   if (status === "failed") {
-    return "border-red-200 bg-red-50 text-red-700";
+    return "danger";
   }
 
-  return "border-slate-200 bg-slate-50 text-slate-700";
+  return "default";
 }
 
 function channelLabel(channel: string) {
@@ -72,11 +73,11 @@ export default function NotificationsPage() {
   }, [router]);
 
   return (
-    <main className="min-h-screen p-6">
+    <main className="min-h-screen p-6 bg-slate-50">
       <div className="max-w-5xl mx-auto space-y-6">
         <header className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold">Notifiche</h1>
+            <h1 className="text-2xl font-bold text-slate-900">Notifiche</h1>
             <p className="text-sm text-slate-600">
               Storico delle notifiche promemoria registrate dal sistema.
             </p>
@@ -90,29 +91,21 @@ export default function NotificationsPage() {
           </Link>
         </header>
 
-        {error && (
-          <div className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg p-3">
-            {error}
-          </div>
-        )}
+        {error && <Alert variant="error">{error}</Alert>}
 
         {loading ? (
-          <div className="bg-white rounded-2xl shadow p-6 text-sm text-slate-600">
-            Caricamento notifiche...
-          </div>
+          <Card>
+            <p className="text-sm text-slate-600">Caricamento notifiche...</p>
+          </Card>
         ) : notifications.length === 0 ? (
-          <div className="bg-white rounded-2xl shadow p-6 space-y-3">
-            <h2 className="text-lg font-semibold">Nessuna notifica</h2>
-            <p className="text-sm text-slate-600">
-              Non ci sono ancora notifiche registrate per questo account.
-            </p>
-            <p className="text-xs text-slate-500">
-              Le notifiche compaiono quando il sistema elabora promemoria scaduti
-              tramite lo script manuale o il wrapper schedulabile.
-            </p>
-          </div>
+          <Card>
+            <EmptyState
+              title="Nessuna notifica"
+              description="Non ci sono ancora notifiche registrate per questo account. Le notifiche compaiono quando il sistema elabora promemoria scaduti tramite lo script manuale o il wrapper schedulabile."
+            />
+          </Card>
         ) : (
-          <section className="bg-white rounded-2xl shadow p-6">
+          <Card>
             <div className="flex items-center justify-between gap-3 mb-4">
               <h2 className="text-lg font-semibold">Notifiche recenti</h2>
               <span className="text-sm text-slate-600">
@@ -133,13 +126,9 @@ export default function NotificationsPage() {
                       </p>
                     </div>
 
-                    <span
-                      className={`shrink-0 rounded-full border px-2 py-1 text-xs font-medium ${statusClasses(
-                        n.status
-                      )}`}
-                    >
+                    <Badge variant={statusVariant(n.status)} className="shrink-0">
                       {n.status}
-                    </span>
+                    </Badge>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs text-slate-600">
@@ -185,16 +174,16 @@ export default function NotificationsPage() {
                 </li>
               ))}
             </ul>
-          </section>
+          </Card>
         )}
 
-        <section className="bg-white rounded-2xl shadow p-6">
+        <Card>
           <h2 className="text-lg font-semibold mb-2">Nota operativa</h2>
           <p className="text-sm text-slate-700">
             Questa pagina e' sola lettura. Non invia email, non abilita push,
             non elimina dati e non modifica la retention dei documenti.
           </p>
-        </section>
+        </Card>
 
         <footer className="text-xs text-slate-500">
           VitaSync Portal e' uno strumento di organizzazione
