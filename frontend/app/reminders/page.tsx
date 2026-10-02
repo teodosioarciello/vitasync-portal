@@ -12,6 +12,7 @@ import {
   reminderTypeClass,
   toLocalInputValue,
 } from "@/lib/format";
+import { Alert, Badge, Button, Card, EmptyState, Input } from "@/components/ui";
 
 type Patient = {
   id: string;
@@ -76,7 +77,9 @@ export default function RemindersPage() {
       const [therapyList, reminderList, notifiedList] = await Promise.all([
         apiFetch<TherapyOption[]>(`/api/therapies?patient_id=${me.id}`),
         apiFetch<Reminder[]>(`/api/reminders?patient_id=${me.id}${qs}`),
-        apiFetch<string[]>(`/api/notifications/reminders-status?patient_id=${me.id}`).catch(() => []),
+        apiFetch<string[]>(
+          `/api/notifications/reminders-status?patient_id=${me.id}`
+        ).catch(() => [] as string[]),
       ]);
 
       setTherapies(therapyList);
@@ -175,7 +178,7 @@ export default function RemindersPage() {
   const now = new Date();
 
   return (
-    <main className="min-h-screen p-6">
+    <main className="min-h-screen p-6 bg-slate-50">
       <div className="max-w-6xl mx-auto space-y-6">
         <header className="flex items-center justify-between">
           <div>
@@ -185,47 +188,40 @@ export default function RemindersPage() {
             >
               &larr; Torna alla dashboard
             </Link>
-            <h1 className="text-2xl font-bold mt-1">Promemoria</h1>
+            <h1 className="text-2xl font-bold mt-1 text-slate-900">
+              Promemoria
+            </h1>
             <p className="text-sm text-slate-600">
               Promemoria per {patient?.display_name || "..."}.
             </p>
           </div>
 
-          <button
+          <Button
+            variant="secondary"
             onClick={() => void load()}
             disabled={loading}
-            className="rounded-lg border border-slate-300 px-4 py-2 text-sm hover:bg-slate-100 disabled:opacity-60"
           >
             {loading ? "Caricamento..." : "Ricarica"}
-          </button>
+          </Button>
         </header>
 
-        {error && (
-          <div className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg p-3">
-            {error}
-          </div>
-        )}
+        {error && <Alert variant="error">{error}</Alert>}
+        {message && <Alert variant="success">{message}</Alert>}
 
-        {message && (
-          <div className="text-sm text-green-800 bg-green-50 border border-green-200 rounded-lg p-3">
-            {message}
-          </div>
-        )}
-
-        <section className="bg-white rounded-2xl shadow p-6">
+        <Card>
           <h2 className="text-lg font-semibold mb-4">Nuovo promemoria</h2>
 
-          <form onSubmit={onCreate} className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <form
+            onSubmit={onCreate}
+            className="grid grid-cols-1 md:grid-cols-3 gap-4"
+          >
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium mb-1">
-                Titolo *
-              </label>
-              <input
+              <Input
+                label="Titolo *"
                 value={form.title}
                 onChange={(e) =>
                   setForm((prev) => ({ ...prev, title: e.target.value }))
                 }
-                className="w-full rounded-lg border border-slate-300 px-3 py-2"
                 placeholder="Es. Assunzione sera"
                 required
               />
@@ -241,7 +237,7 @@ export default function RemindersPage() {
                     reminder_type: e.target.value,
                   }))
                 }
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 bg-white"
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 bg-white text-sm"
               >
                 <option value="medication">farmaco</option>
                 <option value="appointment">visita/controllo</option>
@@ -252,10 +248,8 @@ export default function RemindersPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-1">
-                Data e ora *
-              </label>
-              <input
+              <Input
+                label="Data e ora *"
                 type="datetime-local"
                 value={form.scheduled_at}
                 onChange={(e) =>
@@ -264,7 +258,6 @@ export default function RemindersPage() {
                     scheduled_at: e.target.value,
                   }))
                 }
-                className="w-full rounded-lg border border-slate-300 px-3 py-2"
                 required
               />
             </div>
@@ -278,7 +271,7 @@ export default function RemindersPage() {
                 onChange={(e) =>
                   setForm((prev) => ({ ...prev, therapy_id: e.target.value }))
                 }
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 bg-white"
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 bg-white text-sm"
               >
                 <option value="">Nessuna</option>
                 {therapies.map((t) => (
@@ -297,33 +290,35 @@ export default function RemindersPage() {
                 onChange={(e) =>
                   setForm((prev) => ({ ...prev, notes: e.target.value }))
                 }
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 min-h-[80px]"
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 min-h-[80px] text-sm"
                 placeholder="Note sintetiche, non dati reali sensibili."
               />
             </div>
 
             <div className="md:col-span-3">
-              <button
+              <Button
                 type="submit"
                 disabled={saving || !form.title.trim()}
-                className="rounded-lg bg-slate-900 text-white px-4 py-2 text-sm font-medium hover:bg-slate-800 disabled:opacity-60"
+                loading={saving}
               >
                 {saving ? "Creazione..." : "Crea promemoria"}
-              </button>
+              </Button>
             </div>
           </form>
-        </section>
+        </Card>
 
-        <section className="bg-white rounded-2xl shadow p-6">
+        <Card>
           <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
             <h2 className="text-lg font-semibold">Elenco promemoria</h2>
 
             <div className="w-full md:w-64">
-              <label className="block text-sm font-medium mb-1">Filtro stato</label>
+              <label className="block text-sm font-medium mb-1">
+                Filtro stato
+              </label>
               <select
                 value={filter}
                 onChange={(e) => setFilter(e.target.value)}
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 bg-white"
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 bg-white text-sm"
               >
                 <option value="">Tutti</option>
                 <option value="pending">da fare</option>
@@ -333,16 +328,21 @@ export default function RemindersPage() {
               </select>
             </div>
           </div>
-        </section>
+        </Card>
 
         {loading ? (
-          <div className="bg-white rounded-2xl shadow p-6 text-sm text-slate-600">
-            Caricamento...
-          </div>
+          <Card>
+            <div className="flex items-center justify-center py-12">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-slate-900" />
+            </div>
+          </Card>
         ) : items.length === 0 ? (
-          <div className="bg-white rounded-2xl shadow p-6 text-sm text-slate-600">
-            Nessun promemoria trovato.
-          </div>
+          <Card>
+            <EmptyState
+              title="Nessun promemoria trovato"
+              description="Crea il primo promemoria con il modulo qui sopra: riceverai il badge Notificato quando verra' notificato."
+            />
+          </Card>
         ) : (
           <section className="space-y-4">
             {items.map((r) => {
@@ -351,20 +351,17 @@ export default function RemindersPage() {
                 r.status === "pending" && scheduled.getTime() < now.getTime();
 
               return (
-                <article
-                  key={r.id}
-                  className="bg-white rounded-2xl shadow p-6 space-y-4"
-                >
+                <Card key={r.id}>
                   <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
                     <div>
-                      <h3 className="text-lg font-semibold">{r.title}</h3>
+                      <h3 className="text-lg font-semibold text-slate-900">
+                        {r.title}
+                      </h3>
                       <p className="text-sm text-slate-600">
                         {formatDateTime(r.scheduled_at)}
                       </p>
                       {isOverdue && (
-                        <p className="text-xs text-red-700 mt-1">
-                          scaduto
-                        </p>
+                        <p className="text-xs text-red-700 mt-1">scaduto</p>
                       )}
                     </div>
 
@@ -386,21 +383,21 @@ export default function RemindersPage() {
                       </span>
 
                       {notifiedIds.has(r.id) && (
-                        <span className="inline-block px-3 py-1 rounded-full border border-emerald-200 bg-emerald-50 text-xs font-medium text-emerald-700">
-                          Notificato
-                        </span>
+                        <Badge variant="success">Notificato</Badge>
                       )}
                     </div>
                   </div>
 
                   {r.notes && (
-                    <div className="text-sm text-slate-700 bg-slate-50 border border-slate-200 rounded-lg p-3">
+                    <div className="text-sm text-slate-700 bg-slate-50 border border-slate-200 rounded-lg p-3 mt-4">
                       {r.notes}
                     </div>
                   )}
 
-                  <div className="flex flex-wrap gap-2">
-                    <button
+                  <div className="flex flex-wrap gap-2 mt-4">
+                    <Button
+                      variant="successOutline"
+                      size="sm"
                       onClick={() =>
                         void updateReminder(
                           r.id,
@@ -409,12 +406,13 @@ export default function RemindersPage() {
                         )
                       }
                       disabled={busyId === r.id || r.status === "done"}
-                      className="rounded-lg border border-green-200 px-3 py-1 text-xs text-green-800 hover:bg-green-50 disabled:opacity-50"
                     >
                       Fatto
-                    </button>
+                    </Button>
 
-                    <button
+                    <Button
+                      variant="warningOutline"
+                      size="sm"
                       onClick={() => {
                         const next = new Date(
                           scheduled.getTime() + 60 * 60 * 1000
@@ -429,12 +427,13 @@ export default function RemindersPage() {
                         );
                       }}
                       disabled={busyId === r.id || r.status === "cancelled"}
-                      className="rounded-lg border border-amber-200 px-3 py-1 text-xs text-amber-800 hover:bg-amber-50 disabled:opacity-50"
                     >
                       Posticipa 1h
-                    </button>
+                    </Button>
 
-                    <button
+                    <Button
+                      variant="infoOutline"
+                      size="sm"
                       onClick={() =>
                         void updateReminder(
                           r.id,
@@ -443,12 +442,13 @@ export default function RemindersPage() {
                         )
                       }
                       disabled={busyId === r.id || r.status === "pending"}
-                      className="rounded-lg border border-blue-200 px-3 py-1 text-xs text-blue-800 hover:bg-blue-50 disabled:opacity-50"
                     >
                       Ripristina
-                    </button>
+                    </Button>
 
-                    <button
+                    <Button
+                      variant="dangerOutline"
+                      size="sm"
                       onClick={() =>
                         void updateReminder(
                           r.id,
@@ -457,18 +457,17 @@ export default function RemindersPage() {
                         )
                       }
                       disabled={busyId === r.id || r.status === "cancelled"}
-                      className="rounded-lg border border-red-200 px-3 py-1 text-xs text-red-700 hover:bg-red-50 disabled:opacity-50"
                     >
                       Annulla
-                    </button>
+                    </Button>
                   </div>
-                </article>
+                </Card>
               );
             })}
           </section>
         )}
 
-        <footer className="text-xs text-slate-500">
+        <footer className="text-xs text-slate-500 text-center pt-4">
           VitaSync Portal e&apos; uno strumento di organizzazione
           personale/familiare. I promemoria non sostituiscono prescrizioni,
           controlli medici o parere professionale.
