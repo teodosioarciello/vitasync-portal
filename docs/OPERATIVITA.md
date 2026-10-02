@@ -702,3 +702,42 @@ Uso consigliato:
 3. se vuoi email reali, configura SMTP;
 4. premi "Invia email di prova" e verifica la ricezione;
 5. solo dopo aver verificato, modifica lo scheduler per usare -Execute con SMTP.
+
+<!-- B-STEP4F-WIRING-SECTION -->
+### 7.10 Wiring preferenze utente nel batch - Sprint B Step 4F
+
+Dallo Sprint B Step 4F il batch notifiche (`send_due_reminders.py` e il wrapper
+`schedulabile send-due-reminders.ps1`) rispetta le preferenze per-utente
+salvate in `user_settings` (pagina /settings):
+
+- `notifications_enabled = False` -> il promemoria viene saltato e NON viene
+  scritto alcun `notification_logs`: il promemoria resta "dovuto" e verra'
+  riproposto alla run successiva, quando l'utente riattiva le notifiche;
+- `notification_channel` -> canale preferito dall'utente (console o smtp);
+- canale smtp -> usa la configurazione SMTP effettiva dell'utente
+  (`resolve_effective_smtp`: impostazioni utente con fallback alle env var).
+
+Precedenza canale:
+
+1. `channel_override` (passato esplicitamente, es. dai test);
+2. `user_settings.notification_channel` (se l'utente ha impostazioni);
+3. env `NOTIFICATION_CHANNEL` (default `console`).
+
+Master switch di sicurezza:
+
+- `NOTIFICATIONS_ENABLED=false` blocca ogni invio SMTP reale anche se
+  l'utente ha configurato smtp (viene registrato un log `skipped`);
+- il canale `console` non e' toccato dal master switch perche' non esce
+  dal sistema.
+
+Il wrapper PowerShell non e' stato modificato: resta con dry-run di default
+e `-Execute` esplicito. Con `-Execute`, ora, il comportamento segue le
+preferenze per-utente.
+
+Test deterministico:
+
+    docker compose exec backend python scripts/test_notifications_wiring.py
+
+Il test verifica con run sequenziali: skip senza log quando disabilitato,
+sent con console, failed con smtp senza host, e che lo skip non consumi
+il promemoria (run successiva con console lo notifica).

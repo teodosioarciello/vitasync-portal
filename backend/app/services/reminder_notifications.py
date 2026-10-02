@@ -1,20 +1,25 @@
 """
-Sprint B Step 4A.
+Sprint B Step 4A + 4F.
 
 Servizio per notificare promemoria scaduti.
 
 Canali supportati:
 - console: stampa a log/stdout, nessuna email reale;
-- smtp: invio email via SMTP configurato tramite env var.
+- smtp: invio email via SMTP.
 
-Env var principali:
-- NOTIFICATIONS_ENABLED=true|false
-- NOTIFICATION_CHANNEL=console|smtp
-- PUBLIC_APP_URL=http://localhost:3001
-- SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD, SMTP_FROM
-- SMTP_STARTTLS=true|false
-- SMTP_SSL=true|false
-- SMTP_TIMEOUT_SECONDS=30
+Step 4F: le preferenze utente (user_settings) entrano nel batch:
+- notifications_enabled = False -> il promemoria viene saltato (nessun log);
+- notification_channel        -> canale preferito dall'utente;
+- SMTP personale dell'utente  -> usato se canale smtp (con fallback env).
+
+Precedenza canale:
+1. channel_override (passato esplicitamente, es. dai test);
+2. user_settings.notification_channel (se l'utente ha impostazioni);
+3. env NOTIFICATION_CHANNEL (default console).
+
+Master switch: NOTIFICATIONS_ENABLED=false blocca ogni invio SMTP reale,
+anche se l'utente ha configurato smtp. Il canale console non e' toccato
+dal master switch perche' non esce dal sistema.
 """
 
 import html
@@ -32,6 +37,7 @@ from sqlalchemy.orm import Session
 from app.db.models import Patient, User
 from app.db.notification_models import NotificationLog
 from app.db.therapy_models import Reminder
+from app.services import user_settings
 
 logger = logging.getLogger(__name__)
 
@@ -136,18 +142,26 @@ def _send_smtp_email(
     subject: str,
     body_text: str,
     body_html: str,
+    cfg: dict | None = None,
 ) -> None:
-    host = os.getenv("SMTP_HOST")
+    cfg = cfg or {}
+
+    host = cfg.get("host") or os.getenv("SMTP_HOST")
 
     if not host:
         raise RuntimeError("SMTP_HOST non configurato.")
 
-    port = int(os.getenv("SMTP_PORT", "587"))
-    user = os.getenv("SMTP_USER")
-    password = os.getenv("SMTP_PASSWORD")
-    sender = os.getenv("SMTP_FROM") or user or "noreply@vitasync.local"
+    port = int(cfg.get("port") or os.getenv("SMTP_PORT", "587"))
+    user = cfg.get("user") or os.getenv("SMTP_USER")
+    password = cfg.get("password") if cfg.get("password") is not None else os.getenv("SMTP_PASSWORD")
+    sender = cfg.get("sender") or os.getenv("SMTP_FROM") or user or "noreply@vitasync.local"
+
     use_ssl = _env_bool("SMTP_SSL", False)
-    starttls = _env_bool("SMTP_STARTTLS", not use_ssl and port == 587)
+
+    starttls = cfg.get("use_tls")
+    if starttls is None:
+        starttls = _env_bool("SMTP_STARTTLS", not use_ssl and port == 587)
+
     timeout = int(os.getenv("SMTP_TIMEOUT_SECONDS", "30"))
 
     msg = EmailMessage()
@@ -231,9 +245,10 @@ def dispatch_reminder_due(
     *,
     channel: str | None = None,
     dry_run: bool = False,
+    smtp_cfg: dict | None = None,
 ) -> str:
     """
-    Invia/registrar una notifica reminder_due.
+    Invia/registra una notifica reminder_due.
 
     Ritorna lo status: sent | failed | skipped.
     In dry-run non crea log e non invia nulla.
@@ -328,6 +343,7 @@ def dispatch_reminder_due(
                 subject=subject,
                 body_text=body_text,
                 body_html=body_html,
+                cfg=smtp_cfg,
             )
         except Exception as exc:  # noqa: BLE001
             logger.exception("Invio SMTP promemoria fallito per reminder %s", reminder.id)
@@ -428,8 +444,15 @@ def send_due_reminders(
     channel_override: str | None = None,
     only_reminder_ids: list[str] | None = None,
 ) -> dict:
+    """
+    Step 4F: per ogni promemoria dovuto, legge le preferenze dell'utente
+    proprietario e applica canale/abilitazione per-utente.
+
+    - utente con notifications_enabled=False -> skipped, nessun log;
+    - canale = channel_override > user_settings > env;
+    - smtp usa la configurazione SMTP effettiva dell'utente (fallback env).
+    """
     now = now or _utcnow()
-    channel = channel_override or get_channel()
 
     reminders = collect_due_reminders(
         db,
@@ -439,7 +462,7 @@ def send_due_reminders(
     )
 
     summary = {
-        "channel": channel,
+        "channel": channel_override or "per-user",
         "dry_run": dry_run,
         "candidates": len(reminders),
         "sent": 0,
@@ -448,10 +471,45 @@ def send_due_reminders(
     }
 
     for reminder in reminders:
+        user, patient, _recipient_error = _get_reminder_recipient(db, reminder)
+
+        settings = None
+        if user is not None:
+            settings = user_settings.get_or_create_settings(db, user)
+
+        # Preferenza utente: notifiche disabilitate -> skip senza log
+        if settings is not None and not settings.notifications_enabled:
+            if dry_run:
+                print(
+                    f"DRY-RUN: promemoria {reminder.id} skip "
+                    f"(notifiche disabilitate per l'utente)"
+                )
+            else:
+                logger.info(
+                    "Notifiche disabilitate per utente %s: skip promemoria %s",
+                    user.username if user else "?",
+                    reminder.id,
+                )
+            summary["skipped"] += 1
+            continue
+
+        # Precedenza canale: override > user settings > env
+        if channel_override:
+            channel = channel_override
+        elif settings is not None:
+            channel = settings.notification_channel
+        else:
+            channel = get_channel()
+
+        smtp_cfg = None
+        if channel == CHANNEL_SMTP and user is not None:
+            smtp_cfg = user_settings.resolve_effective_smtp(db, user)
+
         if dry_run:
             print(
                 f"DRY-RUN: promemoria {reminder.id} sarebbe notificato "
-                f"(scheduled_at={reminder.scheduled_at.isoformat()}, title={reminder.title!r})"
+                f"(scheduled_at={reminder.scheduled_at.isoformat()}, "
+                f"title={reminder.title!r}, channel={channel})"
             )
             summary["skipped"] += 1
             continue
@@ -461,6 +519,7 @@ def send_due_reminders(
             reminder,
             channel=channel,
             dry_run=False,
+            smtp_cfg=smtp_cfg,
         )
 
         if status == STATUS_SENT:
