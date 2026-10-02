@@ -1,18 +1,15 @@
 """
-Sprint B Step 4E.
+Sprint B Step 4E + Micro-step pre-produzione.
 
 Servizio per gestire le preferenze notifiche dell'utente.
-
-Regole:
-- se l'utente ha una riga user_settings, quelle impostazioni vincono;
-- altrimenti si applicano i default (console + env var globali).
-- la password SMTP e' salvata in chiaro: dichiarato in docs.
+Le password SMTP sono cifrate a riposo usando Fernet se SMTP_ENCRYPTION_KEY e' configurata.
 """
 
 import logging
 import os
 from uuid import UUID
 
+from cryptography.fernet import Fernet, InvalidToken
 from sqlalchemy.orm import Session
 
 from app.db.models import User
@@ -29,6 +26,44 @@ def _env_bool(name: str, default: bool = False) -> bool:
     if raw is None:
         return default
     return raw.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _get_fernet():
+    key = os.getenv("SMTP_ENCRYPTION_KEY")
+    if not key:
+        return None
+    try:
+        if isinstance(key, str):
+            key = key.encode("utf-8")
+        return Fernet(key)
+    except Exception:
+        logger.warning("SMTP_ENCRYPTION_KEY non valida. Le password SMTP saranno salvate in chiaro.")
+        return None
+
+
+def encrypt_smtp_password(password: str | None) -> str | None:
+    if not password:
+        return password
+    f = _get_fernet()
+    if not f:
+        return password
+    return f.encrypt(password.encode("utf-8")).decode("utf-8")
+
+
+def decrypt_smtp_password(token: str | None) -> str | None:
+    if not token:
+        return token
+    f = _get_fernet()
+    if not f:
+        return token
+    try:
+        return f.decrypt(token.encode("utf-8")).decode("utf-8")
+    except InvalidToken:
+        # Fallback: se non e' un token Fernet valido, potrebbe essere una password
+        # salvata in chiaro prima dell'abilitazione della cifratura.
+        return token
+    except Exception:
+        return token
 
 
 def get_or_create_settings(db: Session, user: User) -> UserSettings:
@@ -63,7 +98,7 @@ def settings_to_dict(settings: UserSettings, *, include_password: bool = False) 
     }
 
     if include_password:
-        data["smtp_password"] = settings.smtp_password
+        data["smtp_password"] = decrypt_smtp_password(settings.smtp_password)
 
     return data
 
@@ -71,11 +106,6 @@ def settings_to_dict(settings: UserSettings, *, include_password: bool = False) 
 def update_settings(db: Session, user: User, payload: dict) -> UserSettings:
     """
     Aggiorna le UserSettings dell'utente.
-
-    Campi accettati:
-    - notification_channel: 'console' | 'smtp'
-    - notifications_enabled: bool
-    - smtp_host, smtp_port, smtp_user, smtp_password, smtp_from, smtp_use_tls
     """
     settings = get_or_create_settings(db, user)
 
@@ -105,6 +135,9 @@ def update_settings(db: Session, user: User, payload: dict) -> UserSettings:
         if value == "":
             # stringa vuota per campi SMTP opzionali => NULL
             setattr(settings, key, None)
+        elif key == "smtp_password":
+            # Cifra la password prima di salvarla
+            setattr(settings, key, encrypt_smtp_password(value))
         else:
             setattr(settings, key, value)
 
@@ -115,9 +148,7 @@ def update_settings(db: Session, user: User, payload: dict) -> UserSettings:
 
 def resolve_effective_smtp(db: Session, user: User) -> dict:
     """
-    Ritorna la configurazione SMTP effettiva da usare per l'invio:
-    - se l'utente ha impostato smtp_host, usa quella;
-    - altrimenti usa le env var globali (retrocompatibilita').
+    Ritorna la configurazione SMTP effettiva da usare per l'invio.
     """
     settings = get_or_create_settings(db, user)
 
@@ -131,7 +162,11 @@ def resolve_effective_smtp(db: Session, user: User) -> dict:
             port = 587
 
     user_smtp = settings.smtp_user or os.getenv("SMTP_USER")
-    password = settings.smtp_password or os.getenv("SMTP_PASSWORD")
+    
+    # Decifra la password se presente
+    decrypted_pwd = decrypt_smtp_password(settings.smtp_password)
+    password = decrypted_pwd or os.getenv("SMTP_PASSWORD")
+    
     sender = settings.smtp_from or os.getenv("SMTP_FROM") or user_smtp or "noreply@vitasync.local"
 
     use_tls = settings.smtp_use_tls if settings.smtp_host else _env_bool("SMTP_STARTTLS", not _env_bool("SMTP_SSL", False))
