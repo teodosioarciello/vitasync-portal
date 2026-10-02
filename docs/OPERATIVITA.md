@@ -783,3 +783,45 @@ Cleanup manuale dopo -Keep:
 
     docker compose exec postgres psql -U vitasync -d postgres -c "DROP DATABASE IF EXISTS vitasync_drill;"
     docker compose exec postgres rm -f /tmp/vitasync-drill.dump
+
+<!-- FERNET-SMOKE-SECTION -->
+### 9.2 Smoke test cifratura Fernet password SMTP (chiave reale)
+
+Oltre al test unitario `test_smtp_encryption.py` (che genera una chiave Fernet
+al volo e verifica il servizio in isolation), esiste uno smoke test che verifica
+il PERCORSO REALE di produzione usando la chiave `SMTP_ENCRYPTION_KEY` realmente
+configurata nel container backend.
+
+Comando:
+
+    docker compose exec backend python scripts/test_fernet_smoke.py
+
+Cosa verifica:
+
+- `SMTP_ENCRYPTION_KEY` presente e valida nel container backend (senza stamparne il valore);
+- la password di prova, salvata via `update_settings`, finisce nel DB CIFRATA
+  (prefisso `gAAAAA`, diversa dal plain);
+- `decrypt_smtp_password` la恢复a correttamente;
+- `resolve_effective_smtp` (percorso usato dall'invio notifiche) restituisce la
+  password decifrata;
+- `settings_to_dict(include_password=False)` NON espone la password;
+- `settings_to_dict(include_password=True)` la espone decifrata (solo uso interno SMTP);
+- a fine test lo stato originale della riga `user_settings` viene ripristinato
+  (rollback difensivo della sessione ORM nel `finally`).
+
+Cosa NON copre:
+
+- invio email SMTP reale (nessuna connessione SMTP);
+- la migrazione `migrate_encrypt_smtp.py` (quella e' un'altra operazione);
+- la rotazione della chiave Fernet.
+
+Sicurezza:
+
+- il test non stampa mai password o token in chiaro;
+- usa una password di prova fittizia (`smoke-test-password-DO-NOT-USE`);
+- ripristina sempre lo stato precedente, quindi non lascia tracce nel DB.
+
+Prerequisito: `SMTP_ENCRYPTION_KEY` deve essere passata al container backend
+da `docker-compose.yml` (env_file: .env oppure environment). Se il test esce
+con `SMTP_ENCRYPTION_KEY non impostata nel container backend`, il problema e'
+di configurazione compose, non di codice.
