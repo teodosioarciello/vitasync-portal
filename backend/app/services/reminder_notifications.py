@@ -256,8 +256,19 @@ def dispatch_reminder_due(
     if dry_run:
         return STATUS_SKIPPED
 
-    channel = channel or get_channel()
     user, patient, recipient_error = _get_reminder_recipient(db, reminder)
+
+    if channel is None:
+        if user is not None:
+            settings = user_settings.get_or_create_settings(db, user)
+
+            if not settings.notifications_enabled:
+                # Notifiche disabilitate dall'utente: skip silenzioso (tracciato nel summary).
+                return STATUS_SKIPPED
+
+            channel = settings.notification_channel
+        else:
+            channel = get_channel()
 
     metadata = {
         "reminder_id": str(reminder.id),
