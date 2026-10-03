@@ -23,6 +23,11 @@ type Reminder = {
 // necessitano di un ID e vengono raggiunte dalle pagine che lo conoscono.
 const navItems: { href: string; title: string; description: string }[] = [
   {
+    href: "/documents",
+    title: "Documenti",
+    description: "Carica referti, gestisci elenco e cestino.",
+  },
+  {
     href: "/reminders",
     title: "Promemoria",
     description: "Gestisci promemoria per farmaci e visite.",
