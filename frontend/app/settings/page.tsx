@@ -168,10 +168,10 @@ export default function SettingsPage() {
                 </label>
 
                 <div>
-                  <label className="block text-sm font-medium mb-1">
+                  <label htmlFor="settings-notification-channel" className="block text-sm font-medium mb-1">
                     Canale preferito
                   </label>
-                  <select
+                  <select id="settings-notification-channel"
                     value={form.notification_channel}
                     onChange={(e) =>
                       setForm((prev) => ({

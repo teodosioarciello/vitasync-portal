@@ -228,8 +228,8 @@ export default function RemindersPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-1">Tipo</label>
-              <select
+              <label htmlFor="reminder-type" className="block text-sm font-medium mb-1">Tipo</label>
+              <select id="reminder-type"
                 value={form.reminder_type}
                 onChange={(e) =>
                   setForm((prev) => ({
@@ -263,10 +263,10 @@ export default function RemindersPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-1">
+              <label htmlFor="reminder-therapy" className="block text-sm font-medium mb-1">
                 Terapia collegata
               </label>
-              <select
+              <select id="reminder-therapy"
                 value={form.therapy_id}
                 onChange={(e) =>
                   setForm((prev) => ({ ...prev, therapy_id: e.target.value }))
@@ -284,8 +284,8 @@ export default function RemindersPage() {
             </div>
 
             <div className="md:col-span-3">
-              <label className="block text-sm font-medium mb-1">Note</label>
-              <textarea
+              <label htmlFor="reminder-notes" className="block text-sm font-medium mb-1">Note</label>
+              <textarea id="reminder-notes"
                 value={form.notes}
                 onChange={(e) =>
                   setForm((prev) => ({ ...prev, notes: e.target.value }))
@@ -312,10 +312,10 @@ export default function RemindersPage() {
             <h2 className="text-lg font-semibold">Elenco promemoria</h2>
 
             <div className="w-full md:w-64">
-              <label className="block text-sm font-medium mb-1">
+              <label htmlFor="reminder-filter" className="block text-sm font-medium mb-1">
                 Filtro stato
               </label>
-              <select
+              <select id="reminder-filter"
                 value={filter}
                 onChange={(e) => setFilter(e.target.value)}
                 className="w-full rounded-lg border border-slate-300 px-3 py-2 bg-white text-sm"

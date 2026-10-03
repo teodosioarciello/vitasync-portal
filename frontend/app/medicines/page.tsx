@@ -174,8 +174,8 @@ export default function MedicinesPage() {
             className="grid grid-cols-1 md:grid-cols-2 gap-4"
           >
             <div>
-              <label className="block text-sm font-medium mb-1">Nome *</label>
-              <input
+              <label htmlFor="medicine-name" className="block text-sm font-medium mb-1">Nome *</label>
+              <input id="medicine-name"
                 value={form.name}
                 onChange={(e) =>
                   setForm((prev) => ({ ...prev, name: e.target.value }))
@@ -187,10 +187,10 @@ export default function MedicinesPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-1">
+              <label htmlFor="medicine-generic-name" className="block text-sm font-medium mb-1">
                 Principio attivo
               </label>
-              <input
+              <input id="medicine-generic-name"
                 value={form.generic_name}
                 onChange={(e) =>
                   setForm((prev) => ({ ...prev, generic_name: e.target.value }))
@@ -201,8 +201,8 @@ export default function MedicinesPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-1">Forma</label>
-              <input
+              <label htmlFor="medicine-form" className="block text-sm font-medium mb-1">Forma</label>
+              <input id="medicine-form"
                 value={form.form}
                 onChange={(e) =>
                   setForm((prev) => ({ ...prev, form: e.target.value }))
@@ -213,8 +213,8 @@ export default function MedicinesPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-1">Dosaggio</label>
-              <input
+              <label htmlFor="medicine-strength" className="block text-sm font-medium mb-1">Dosaggio</label>
+              <input id="medicine-strength"
                 value={form.strength}
                 onChange={(e) =>
                   setForm((prev) => ({ ...prev, strength: e.target.value }))
@@ -225,8 +225,8 @@ export default function MedicinesPage() {
             </div>
 
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium mb-1">Note</label>
-              <textarea
+              <label htmlFor="medicine-notes" className="block text-sm font-medium mb-1">Note</label>
+              <textarea id="medicine-notes"
                 value={form.notes}
                 onChange={(e) =>
                   setForm((prev) => ({ ...prev, notes: e.target.value }))

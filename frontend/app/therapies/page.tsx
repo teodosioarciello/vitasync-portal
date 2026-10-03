@@ -226,10 +226,10 @@ export default function TherapiesPage() {
               className="grid grid-cols-1 md:grid-cols-3 gap-4"
             >
               <div>
-                <label className="block text-sm font-medium mb-1">
+                <label htmlFor="therapy-medicine" className="block text-sm font-medium mb-1">
                   Medicinale *
                 </label>
-                <select
+                <select id="therapy-medicine"
                   value={form.medicine_id}
                   onChange={(e) =>
                     setForm((prev) => ({
@@ -251,8 +251,8 @@ export default function TherapiesPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1">Stato</label>
-                <select
+                <label htmlFor="therapy-status" className="block text-sm font-medium mb-1">Stato</label>
+                <select id="therapy-status"
                   value={form.status}
                   onChange={(e) =>
                     setForm((prev) => ({ ...prev, status: e.target.value }))
@@ -267,10 +267,10 @@ export default function TherapiesPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1">
+                <label htmlFor="therapy-frequency" className="block text-sm font-medium mb-1">
                   Frequenza
                 </label>
-                <select
+                <select id="therapy-frequency"
                   value={form.frequency}
                   onChange={(e) =>
                     setForm((prev) => ({ ...prev, frequency: e.target.value }))
@@ -289,8 +289,8 @@ export default function TherapiesPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1">Dose</label>
-                <input
+                <label htmlFor="therapy-dose" className="block text-sm font-medium mb-1">Dose</label>
+                <input id="therapy-dose"
                   value={form.dose}
                   onChange={(e) =>
                     setForm((prev) => ({ ...prev, dose: e.target.value }))
@@ -301,8 +301,8 @@ export default function TherapiesPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1">Via</label>
-                <input
+                <label htmlFor="therapy-route" className="block text-sm font-medium mb-1">Via</label>
+                <input id="therapy-route"
                   value={form.route}
                   onChange={(e) =>
                     setForm((prev) => ({ ...prev, route: e.target.value }))
@@ -313,10 +313,10 @@ export default function TherapiesPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1">
+                <label htmlFor="therapy-prescribed-by" className="block text-sm font-medium mb-1">
                   Prescritta da
                 </label>
-                <input
+                <input id="therapy-prescribed-by"
                   value={form.prescribed_by}
                   onChange={(e) =>
                     setForm((prev) => ({
@@ -330,10 +330,10 @@ export default function TherapiesPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1">
+                <label htmlFor="therapy-start-date" className="block text-sm font-medium mb-1">
                   Data inizio
                 </label>
-                <input
+                <input id="therapy-start-date"
                   type="date"
                   value={form.start_date}
                   onChange={(e) =>
@@ -344,10 +344,10 @@ export default function TherapiesPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1">
+                <label htmlFor="therapy-end-date" className="block text-sm font-medium mb-1">
                   Data fine
                 </label>
-                <input
+                <input id="therapy-end-date"
                   type="date"
                   value={form.end_date}
                   onChange={(e) =>
@@ -358,10 +358,10 @@ export default function TherapiesPage() {
               </div>
 
               <div className="md:col-span-3">
-                <label className="block text-sm font-medium mb-1">
+                <label htmlFor="therapy-instructions" className="block text-sm font-medium mb-1">
                   Istruzioni
                 </label>
-                <textarea
+                <textarea id="therapy-instructions"
                   value={form.instructions}
                   onChange={(e) =>
                     setForm((prev) => ({
@@ -375,8 +375,8 @@ export default function TherapiesPage() {
               </div>
 
               <div className="md:col-span-3">
-                <label className="block text-sm font-medium mb-1">Note</label>
-                <textarea
+                <label htmlFor="therapy-notes" className="block text-sm font-medium mb-1">Note</label>
+                <textarea id="therapy-notes"
                   value={form.notes}
                   onChange={(e) =>
                     setForm((prev) => ({ ...prev, notes: e.target.value }))
