@@ -378,7 +378,7 @@ export default function TrendPage() {
           {codes.length > 0 && (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
               {codes.slice(0, 3).map((c) => (
-                <button
+                <button aria-pressed={selected === c.test_code} type="button"
                   key={c.test_code}
                   onClick={() => setSelected(c.test_code)}
                   className={`rounded-xl border p-3 text-left hover:bg-slate-50 ${
