@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { apiFetch } from "@/lib/api";
+import { Alert, Badge, Button, Card, EmptyState } from "@/components/ui";
 
 type Patient = {
   id: string;
@@ -29,6 +30,7 @@ type TrendPoint = {
   unit: string | null;
   reference_min: number | null;
   reference_max: number | null;
+  reference_text: string | null;
   flag: string | null;
   document_id: string;
   document_title: string;
@@ -58,21 +60,6 @@ function formatNumber(value: number | null | undefined): string {
   return Number.isInteger(value) ? String(value) : value.toFixed(2).replace(/\.?0+$/, "");
 }
 
-function flagClasses(flag: string | null): string {
-  switch (flag) {
-    case "normal":
-      return "bg-green-100 text-green-800 border-green-200";
-    case "above_range":
-      return "bg-amber-100 text-amber-800 border-amber-200";
-    case "below_range":
-      return "bg-sky-100 text-sky-800 border-sky-200";
-    case "critical":
-      return "bg-red-100 text-red-800 border-red-200";
-    default:
-      return "bg-slate-100 text-slate-600 border-slate-200";
-  }
-}
-
 function flagLabel(flag: string | null): string {
   switch (flag) {
     case "normal":
@@ -85,6 +72,23 @@ function flagLabel(flag: string | null): string {
       return "critico";
     default:
       return "n/d";
+  }
+}
+
+function flagBadgeVariant(
+  flag: string | null
+): "default" | "success" | "warning" | "danger" | "info" {
+  switch (flag) {
+    case "normal":
+      return "success";
+    case "above_range":
+      return "warning";
+    case "below_range":
+      return "info";
+    case "critical":
+      return "danger";
+    default:
+      return "default";
   }
 }
 
@@ -312,9 +316,9 @@ export default function TrendPage() {
   const points = trend?.points ?? [];
 
   return (
-    <main className="min-h-screen p-6">
+    <main className="min-h-screen p-6 bg-slate-50">
       <div className="max-w-6xl mx-auto space-y-6">
-        <header className="flex items-center justify-between">
+        <header className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
             <Link
               href="/dashboard"
@@ -322,39 +326,32 @@ export default function TrendPage() {
             >
               &larr; Torna alla dashboard
             </Link>
-            <h1 className="text-2xl font-bold mt-1">Trend esami</h1>
+            <h1 className="text-2xl font-bold mt-1 text-slate-900">
+              Trend esami
+            </h1>
             <p className="text-sm text-slate-600">
               Vengono mostrati solo i valori confermati dall&apos;utente.
             </p>
           </div>
 
-          <button
-            onClick={loadInitial}
+          <Button
+            variant="secondary"
+            onClick={() => void loadInitial()}
             disabled={loading}
-            className="rounded-lg border border-slate-300 px-4 py-2 text-sm hover:bg-slate-100 disabled:opacity-60"
+            loading={loading}
           >
             {loading ? "Caricamento..." : "Ricarica"}
-          </button>
+          </Button>
         </header>
 
-        {error && (
-          <div className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg p-3">
-            {error}
-          </div>
-        )}
+        {error && <Alert variant="error">{error}</Alert>}
 
-        {message && (
-          <div className="text-sm text-green-800 bg-green-50 border border-green-200 rounded-lg p-3">
-            {message}
-          </div>
-        )}
+        {message && <Alert variant="success">{message}</Alert>}
 
-        <section className="bg-white rounded-2xl shadow p-6 space-y-4">
+        <Card className="space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-end gap-4">
             <div className="flex-1">
-              <label className="block text-sm font-medium mb-1">
-                Esame
-              </label>
+              <label className="block text-sm font-medium mb-1">Esame</label>
               <select
                 value={selected ?? ""}
                 onChange={(e) => setSelected(e.target.value)}
@@ -374,7 +371,7 @@ export default function TrendPage() {
 
             <div className="text-sm text-slate-600">
               {trend?.test_name_normalized ?? "-"}
-              {trend?.unit ? ` · ${trend.unit}` : ""}
+              {trend?.unit ? ` - ${trend.unit}` : ""}
             </div>
           </div>
 
@@ -393,47 +390,44 @@ export default function TrendPage() {
                   <div className="font-medium">{c.test_name_normalized}</div>
                   <div className="text-xs text-slate-500 mt-1">
                     ultimo: {formatNumber(c.last_value_numeric)}{" "}
-                    {c.last_unit ?? ""} · {formatDate(c.last_date)}
+                    {c.last_unit ?? ""} - {formatDate(c.last_date)}
                   </div>
                   <div className="mt-2">
-                    <span
-                      className={`inline-block px-2 py-1 rounded border text-xs ${flagClasses(
-                        c.last_flag
-                      )}`}
-                    >
+                    <Badge variant={flagBadgeVariant(c.last_flag)}>
                       {flagLabel(c.last_flag)}
-                    </span>
+                    </Badge>
                   </div>
                 </button>
               ))}
             </div>
           )}
-        </section>
+        </Card>
 
         {trendLoading ? (
-          <section className="bg-white rounded-2xl shadow p-6 text-sm text-slate-600">
-            Caricamento trend...
-          </section>
+          <Card>
+            <p className="text-sm text-slate-600">Caricamento trend...</p>
+          </Card>
         ) : points.length === 0 ? (
-          <section className="bg-white rounded-2xl shadow p-6 text-sm text-slate-600">
-            Nessun punto storico confermato per questo esame.
-          </section>
+          <Card>
+            <EmptyState
+              title="Nessun punto storico"
+              description="Nessun punto storico confermato per questo esame."
+            />
+          </Card>
         ) : (
           <>
-            <section className="bg-white rounded-2xl shadow p-6">
+            <Card>
               <h2 className="text-lg font-semibold mb-4">
                 Grafico {trend?.test_name_normalized ?? ""}
               </h2>
               <TrendChart points={points} />
-            </section>
+            </Card>
 
-            <section className="bg-white rounded-2xl shadow overflow-hidden">
-              <div className="p-6 border-b border-slate-200">
-                <h2 className="text-lg font-semibold">Storico confermati</h2>
-                <p className="text-xs text-slate-500 mt-1">
-                  Il delta è calcolato rispetto al punto precedente nello storico.
-                </p>
-              </div>
+            <Card className="overflow-hidden">
+              <h2 className="text-lg font-semibold">Storico confermati</h2>
+              <p className="text-xs text-slate-500 mt-1 mb-4">
+                Il delta e&apos; calcolato rispetto al punto precedente nello storico.
+              </p>
 
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
@@ -500,13 +494,9 @@ export default function TrendPage() {
                                 : "-")}
                           </td>
                           <td className="px-4 py-3">
-                            <span
-                              className={`inline-block px-2 py-1 rounded border text-xs ${flagClasses(
-                                p.flag
-                              )}`}
-                            >
+                            <Badge variant={flagBadgeVariant(p.flag)}>
                               {flagLabel(p.flag)}
-                            </span>
+                            </Badge>
                           </td>
                           <td className="px-4 py-3">
                             <Link
@@ -518,7 +508,7 @@ export default function TrendPage() {
                           </td>
                           <td className="px-4 py-3 text-xs text-slate-500">
                             {p.confirmed_by_user ? "confermato" : "bozza"}
-                            {p.user_corrected ? " · corretto" : ""}
+                            {p.user_corrected ? " - corretto" : ""}
                           </td>
                         </tr>
                       );
@@ -526,7 +516,7 @@ export default function TrendPage() {
                   </tbody>
                 </table>
               </div>
-            </section>
+            </Card>
           </>
         )}
 
