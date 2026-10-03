@@ -261,16 +261,16 @@ export default function MedicinesPage() {
             />
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full text-sm" aria-label="Elenco medicinali">
                 <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
                   <tr>
-                    <th className="px-4 py-3">Nome</th>
-                    <th className="px-4 py-3">Principio attivo</th>
-                    <th className="px-4 py-3">Forma</th>
-                    <th className="px-4 py-3">Dosaggio</th>
-                    <th className="px-4 py-3">Note</th>
-                    <th className="px-4 py-3">Aggiornato</th>
-                    <th className="px-4 py-3"></th>
+                    <th className="px-4 py-3" scope="col">Nome</th>
+                    <th className="px-4 py-3" scope="col">Principio attivo</th>
+                    <th className="px-4 py-3" scope="col">Forma</th>
+                    <th className="px-4 py-3" scope="col">Dosaggio</th>
+                    <th className="px-4 py-3" scope="col">Note</th>
+                    <th className="px-4 py-3" scope="col">Aggiornato</th>
+                    <th className="px-4 py-3" scope="col"><span className="sr-only">Azioni</span></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200">

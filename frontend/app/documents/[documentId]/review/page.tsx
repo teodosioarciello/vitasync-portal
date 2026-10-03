@@ -269,16 +269,16 @@ export default function ReviewPage() {
           </div>
         ) : (
           <section className="bg-white rounded-2xl shadow overflow-hidden">
-            <table className="w-full text-sm">
+            <table className="w-full text-sm" aria-label="Valori estratti dal documento">
               <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
                 <tr>
-                  <th className="px-4 py-3">Esame</th>
-                  <th className="px-4 py-3">Valore</th>
-                  <th className="px-4 py-3">Unita</th>
-                  <th className="px-4 py-3">Riferimento</th>
-                  <th className="px-4 py-3">Flag</th>
-                  <th className="px-4 py-3">Note</th>
-                  <th className="px-4 py-3"></th>
+                  <th className="px-4 py-3" scope="col">Esame</th>
+                  <th className="px-4 py-3" scope="col">Valore</th>
+                  <th className="px-4 py-3" scope="col">Unita</th>
+                  <th className="px-4 py-3" scope="col">Riferimento</th>
+                  <th className="px-4 py-3" scope="col">Flag</th>
+                  <th className="px-4 py-3" scope="col">Note</th>
+                  <th className="px-4 py-3" scope="col"><span className="sr-only">Azioni</span></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200">

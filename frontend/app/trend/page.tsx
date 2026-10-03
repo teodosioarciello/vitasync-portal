@@ -430,17 +430,17 @@ export default function TrendPage() {
               </p>
 
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+                <table className="w-full text-sm" aria-label="Storico valori confermati">
                   <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
                     <tr>
-                      <th className="px-4 py-3">Data</th>
-                      <th className="px-4 py-3">Valore</th>
-                      <th className="px-4 py-3">Delta</th>
-                      <th className="px-4 py-3">Unita</th>
-                      <th className="px-4 py-3">Riferimento</th>
-                      <th className="px-4 py-3">Flag</th>
-                      <th className="px-4 py-3">Documento</th>
-                      <th className="px-4 py-3">Stato</th>
+                      <th className="px-4 py-3" scope="col">Data</th>
+                      <th className="px-4 py-3" scope="col">Valore</th>
+                      <th className="px-4 py-3" scope="col">Delta</th>
+                      <th className="px-4 py-3" scope="col">Unita</th>
+                      <th className="px-4 py-3" scope="col">Riferimento</th>
+                      <th className="px-4 py-3" scope="col">Flag</th>
+                      <th className="px-4 py-3" scope="col">Documento</th>
+                      <th className="px-4 py-3" scope="col">Stato</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200">
