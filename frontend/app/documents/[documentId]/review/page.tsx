@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { apiFetch } from "@/lib/api";
+import { Alert, Badge, Button, Card, EmptyState } from "@/components/ui";
 
 type DocumentItem = {
   id: string;
@@ -38,18 +39,18 @@ type Draft = {
   notes: string;
 };
 
-function flagClasses(flag: string | null): string {
+function flagBadgeVariant(flag: string | null): "default" | "success" | "warning" | "danger" | "info" {
   switch (flag) {
     case "normal":
-      return "bg-green-100 text-green-800 border-green-200";
+      return "success";
     case "above_range":
-      return "bg-amber-100 text-amber-800 border-amber-200";
+      return "warning";
     case "below_range":
-      return "bg-sky-100 text-sky-800 border-sky-200";
+      return "info";
     case "critical":
-      return "bg-red-100 text-red-800 border-red-200";
+      return "danger";
     default:
-      return "bg-slate-100 text-slate-600 border-slate-200";
+      return "default";
   }
 }
 
@@ -79,7 +80,6 @@ function rangeLabel(row: LabTest): string {
 
 export default function ReviewPage() {
   const params = useParams<{ documentId: string }>();
-  const router = useRouter();
   const documentId = params?.documentId;
 
   const [doc, setDoc] = useState<DocumentItem | null>(null);
@@ -225,160 +225,157 @@ export default function ReviewPage() {
               </p>
             )}
           </div>
-          <button type="button"
+          <Button
+            type="button"
+            variant="primary"
             onClick={onConfirmAll}
             disabled={busy || pendingCount === 0}
-            className="rounded-lg bg-slate-900 text-white px-4 py-2 text-sm font-medium hover:bg-slate-800 disabled:opacity-50"
+            loading={busy}
           >
             Conferma tutti ({pendingCount})
-          </button>
+          </Button>
         </header>
 
-        {error && (
-          <div role="alert" aria-live="assertive" aria-atomic="true" className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg p-3">
-            {error}
-          </div>
-        )}
-        {message && (
-          <div role="status" aria-live="polite" aria-atomic="true" className="text-sm text-green-800 bg-green-50 border border-green-200 rounded-lg p-3">
-            {message}
-          </div>
-        )}
+        {error && <Alert variant="error">{error}</Alert>}
+        {message && <Alert variant="success">{message}</Alert>}
 
         {loading ? (
-          <div className="bg-white rounded-2xl shadow p-6 text-sm text-slate-600">
-            Caricamento...
-          </div>
+          <Card>
+            <p className="text-sm text-slate-600">Caricamento...</p>
+          </Card>
         ) : rows.length === 0 ? (
-          <div className="bg-white rounded-2xl shadow p-6 space-y-4">
-            <p className="text-sm text-slate-700">
-              Nessun valore estratto per questo documento.
-            </p>
-            <button type="button"
-              onClick={onExtract}
-              disabled={busy}
-              className="rounded-lg bg-slate-900 text-white px-4 py-2 text-sm font-medium hover:bg-slate-800 disabled:opacity-60"
-            >
-              {busy ? "Estrazione..." : "Estrai valori"}
-            </button>
+          <Card className="space-y-4">
+            <EmptyState
+              title="Nessun valore estratto per questo documento."
+              description={"Esegui l'estrazione per visualizzare i valori lab da confermare."}
+              action={
+                <Button
+                  type="button"
+                  variant="primary"
+                  onClick={onExtract}
+                  disabled={busy}
+                  loading={busy}
+                >
+                  {busy ? "Estrazione..." : "Estrai valori"}
+                </Button>
+              }
+            />
             <p className="text-xs text-slate-500">
               Nota: in questa versione l&apos;estrazione supporta solo PDF
               testuali. Immagini/scansioni (OCR) arrivano in uno step
               successivo.
             </p>
-          </div>
+          </Card>
         ) : (
-          <section className="bg-white rounded-2xl shadow overflow-hidden">
-            <table className="w-full text-sm" aria-label="Valori estratti dal documento">
-              <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
-                <tr>
-                  <th className="px-4 py-3" scope="col">Esame</th>
-                  <th className="px-4 py-3" scope="col">Valore</th>
-                  <th className="px-4 py-3" scope="col">Unita</th>
-                  <th className="px-4 py-3" scope="col">Riferimento</th>
-                  <th className="px-4 py-3" scope="col">Flag</th>
-                  <th className="px-4 py-3" scope="col">Note</th>
-                  <th className="px-4 py-3" scope="col"><span className="sr-only">Azioni</span></th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-200">
-                {rows.map((row) => {
-                  const draft = drafts[row.id] ?? {
-                    value_numeric: "",
-                    unit: "",
-                    notes: "",
-                  };
-                  const isTextOnly =
-                    row.value_numeric == null && row.value_text != null;
-                  return (
-                    <tr key={row.id} className="align-top">
-                      <td className="px-4 py-3">
-                        <div className="font-medium">{row.test_name_normalized}</div>
-                        <div className="text-xs text-slate-500">
-                          {row.test_name_original} &middot; {row.test_code}
-                        </div>
-                        {row.confidence != null && (
-                          <div className="text-[10px] text-slate-400">
-                            conf: {Math.round(row.confidence * 100)}%
+          <Card padding="sm" className="overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm" aria-label="Valori estratti dal documento">
+                <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+                  <tr>
+                    <th className="px-4 py-3" scope="col">Esame</th>
+                    <th className="px-4 py-3" scope="col">Valore</th>
+                    <th className="px-4 py-3" scope="col">Unita</th>
+                    <th className="px-4 py-3" scope="col">Riferimento</th>
+                    <th className="px-4 py-3" scope="col">Flag</th>
+                    <th className="px-4 py-3" scope="col">Note</th>
+                    <th className="px-4 py-3" scope="col"><span className="sr-only">Azioni</span></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200">
+                  {rows.map((row) => {
+                    const draft = drafts[row.id] ?? {
+                      value_numeric: "",
+                      unit: "",
+                      notes: "",
+                    };
+                    const isTextOnly =
+                      row.value_numeric == null && row.value_text != null;
+                    return (
+                      <tr key={row.id} className="align-top">
+                        <td className="px-4 py-3">
+                          <div className="font-medium">{row.test_name_normalized}</div>
+                          <div className="text-xs text-slate-500">
+                            {row.test_name_original} &middot; {row.test_code}
                           </div>
-                        )}
-                      </td>
-                      <td className="px-4 py-3">
-                        {isTextOnly ? (
-                          <span className="inline-block px-2 py-1 rounded bg-slate-100 text-slate-700">
-                            {row.value_text}
-                          </span>
-                        ) : (
-                          <input aria-label={`Valore numerico per ${row.test_name_normalized}`}
-                            type="number"
-                            step="any"
-                            value={draft.value_numeric}
+                          {row.confidence != null && (
+                            <div className="text-[10px] text-slate-400">
+                              conf: {Math.round(row.confidence * 100)}%
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-4 py-3">
+                          {isTextOnly ? (
+                            <Badge variant="default" className="max-w-xs truncate">
+                              {row.value_text}
+                            </Badge>
+                          ) : (
+                            <input aria-label={`Valore numerico per ${row.test_name_normalized}`}
+                              type="number"
+                              step="any"
+                              value={draft.value_numeric}
+                              onChange={(e) =>
+                                setDraft(row.id, "value_numeric", e.target.value)
+                              }
+                              className="w-28 rounded-lg border border-slate-300 px-2 py-1"
+                            />
+                          )}
+                        </td>
+                        <td className="px-4 py-3">
+                          <input aria-label={`Unita per ${row.test_name_normalized}`}
+                            type="text"
+                            value={draft.unit}
                             onChange={(e) =>
-                              setDraft(row.id, "value_numeric", e.target.value)
+                              setDraft(row.id, "unit", e.target.value)
                             }
-                            className="w-28 rounded-lg border border-slate-300 px-2 py-1"
+                            className="w-24 rounded-lg border border-slate-300 px-2 py-1"
                           />
-                        )}
-                      </td>
-                      <td className="px-4 py-3">
-                        <input aria-label={`Unita per ${row.test_name_normalized}`}
-                          type="text"
-                          value={draft.unit}
-                          onChange={(e) =>
-                            setDraft(row.id, "unit", e.target.value)
-                          }
-                          className="w-24 rounded-lg border border-slate-300 px-2 py-1"
-                        />
-                      </td>
-                      <td className="px-4 py-3 text-slate-600 whitespace-nowrap">
-                        {rangeLabel(row)}
-                      </td>
-                      <td className="px-4 py-3">
-                        <span
-                          className={`inline-block px-2 py-1 rounded border text-xs ${flagClasses(
-                            row.flag
-                          )}`}
-                        >
-                          {flagLabel(row.flag)}
-                        </span>
-                        {row.user_corrected && (
-                          <div className="text-[10px] text-amber-700 mt-1">
-                            corretto
-                          </div>
-                        )}
-                      </td>
-                      <td className="px-4 py-3">
-                        <input aria-label={`Note per ${row.test_name_normalized}`}
-                          type="text"
-                          value={draft.notes}
-                          onChange={(e) =>
-                            setDraft(row.id, "notes", e.target.value)
-                          }
-                          placeholder="-"
-                          className="w-40 rounded-lg border border-slate-300 px-2 py-1"
-                        />
-                      </td>
-                      <td className="px-4 py-3">
-                        {row.confirmed_by_user ? (
-                          <span className="inline-block px-2 py-1 rounded bg-green-100 text-green-800 text-xs border border-green-200">
-                            confermato
-                          </span>
-                        ) : (
-                          <button type="button"
-                            onClick={() => onConfirmRow(row)}
-                            disabled={busy}
-                            className="rounded-lg border border-slate-300 px-3 py-1 text-xs hover:bg-slate-100 disabled:opacity-50"
-                          >
-                            Conferma
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </section>
+                        </td>
+                        <td className="px-4 py-3 text-slate-600 whitespace-nowrap">
+                          {rangeLabel(row)}
+                        </td>
+                        <td className="px-4 py-3">
+                          <Badge variant={flagBadgeVariant(row.flag)}>
+                            {flagLabel(row.flag)}
+                          </Badge>
+                          {row.user_corrected && (
+                            <div className="text-[10px] text-amber-700 mt-1">
+                              corretto
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-4 py-3">
+                          <input aria-label={`Note per ${row.test_name_normalized}`}
+                            type="text"
+                            value={draft.notes}
+                            onChange={(e) =>
+                              setDraft(row.id, "notes", e.target.value)
+                            }
+                            placeholder="-"
+                            className="w-40 rounded-lg border border-slate-300 px-2 py-1"
+                          />
+                        </td>
+                        <td className="px-4 py-3">
+                          {row.confirmed_by_user ? (
+                            <Badge variant="success">confermato</Badge>
+                          ) : (
+                            <Button
+                              type="button"
+                              variant="secondary"
+                              size="sm"
+                              onClick={() => onConfirmRow(row)}
+                              disabled={busy}
+                            >
+                              Conferma
+                            </Button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </Card>
         )}
 
         <footer className="text-xs text-slate-500">
