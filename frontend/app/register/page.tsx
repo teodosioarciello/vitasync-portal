@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import Link from "next/link";
 import { useState } from "react";
@@ -57,7 +57,7 @@ export default function RegisterPage() {
   }
 
   return (
-    <main className="min-h-screen flex items-center justify-center p-6">
+    <main id="main-content" className="min-h-screen flex items-center justify-center p-6">
       <div className="w-full max-w-lg bg-white rounded-2xl shadow p-8">
         <h1 className="text-2xl font-bold mb-2">Creazione account</h1>
         <p className="text-sm text-slate-600 mb-6">

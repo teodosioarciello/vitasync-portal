@@ -205,7 +205,7 @@ export default function ReviewPage() {
   const pendingCount = rows.filter((r) => !r.confirmed_by_user).length;
 
   return (
-    <main className="min-h-screen p-6">
+    <main id="main-content" className="min-h-screen p-6">
       <div className="max-w-5xl mx-auto space-y-6">
         <header className="flex items-center justify-between">
           <div>

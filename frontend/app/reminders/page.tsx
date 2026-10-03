@@ -178,7 +178,7 @@ export default function RemindersPage() {
   const now = new Date();
 
   return (
-    <main className="min-h-screen p-6 bg-slate-50">
+    <main id="main-content" className="min-h-screen p-6 bg-slate-50">
       <div className="max-w-6xl mx-auto space-y-6">
         <header className="flex items-center justify-between">
           <div>

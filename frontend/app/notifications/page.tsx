@@ -73,7 +73,7 @@ export default function NotificationsPage() {
   }, [router]);
 
   return (
-    <main className="min-h-screen p-6 bg-slate-50">
+    <main id="main-content" className="min-h-screen p-6 bg-slate-50">
       <div className="max-w-5xl mx-auto space-y-6">
         <header className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>

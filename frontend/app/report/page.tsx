@@ -50,7 +50,7 @@ export default function ReportPage() {
   }
 
   return (
-    <main className="min-h-screen p-6 bg-slate-50">
+    <main id="main-content" className="min-h-screen p-6 bg-slate-50">
       <div className="max-w-3xl mx-auto space-y-6">
         <header>
           <Link
