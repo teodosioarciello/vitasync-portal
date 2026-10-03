@@ -55,10 +55,13 @@ export function Button({
     <button
       className={`${baseClasses} ${variantClasses[variant]} ${sizeClasses[size]} ${className}`}
       disabled={disabled || loading}
+      aria-busy={loading || undefined}
       {...props}
     >
       {loading && (
         <svg
+          aria-hidden="true"
+          focusable="false"
           className="animate-spin -ml-1 mr-2 h-4 w-4"
           fill="none"
           viewBox="0 0 24 24"

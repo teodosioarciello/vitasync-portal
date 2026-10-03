@@ -17,8 +17,15 @@ export function Alert({ variant = "info", title, children, className = "" }: Ale
     error: "bg-red-50 border-red-200 text-red-900",
   };
 
+  const isAssertive = variant === "error" || variant === "warning";
+
   return (
-    <div className={`rounded-lg border p-4 ${variantClasses[variant]} ${className}`}>
+    <div
+      role={isAssertive ? "alert" : "status"}
+      aria-live={isAssertive ? "assertive" : "polite"}
+      aria-atomic="true"
+      className={`rounded-lg border p-4 ${variantClasses[variant]} ${className}`}
+    >
       {title && <h4 className="font-semibold mb-1">{title}</h4>}
       <div className="text-sm">{children}</div>
     </div>
