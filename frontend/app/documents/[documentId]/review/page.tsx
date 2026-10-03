@@ -225,7 +225,7 @@ export default function ReviewPage() {
               </p>
             )}
           </div>
-          <button
+          <button type="button"
             onClick={onConfirmAll}
             disabled={busy || pendingCount === 0}
             className="rounded-lg bg-slate-900 text-white px-4 py-2 text-sm font-medium hover:bg-slate-800 disabled:opacity-50"
@@ -235,12 +235,12 @@ export default function ReviewPage() {
         </header>
 
         {error && (
-          <div className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg p-3">
+          <div role="alert" aria-live="assertive" aria-atomic="true" className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg p-3">
             {error}
           </div>
         )}
         {message && (
-          <div className="text-sm text-green-800 bg-green-50 border border-green-200 rounded-lg p-3">
+          <div role="status" aria-live="polite" aria-atomic="true" className="text-sm text-green-800 bg-green-50 border border-green-200 rounded-lg p-3">
             {message}
           </div>
         )}
@@ -254,7 +254,7 @@ export default function ReviewPage() {
             <p className="text-sm text-slate-700">
               Nessun valore estratto per questo documento.
             </p>
-            <button
+            <button type="button"
               onClick={onExtract}
               disabled={busy}
               className="rounded-lg bg-slate-900 text-white px-4 py-2 text-sm font-medium hover:bg-slate-800 disabled:opacity-60"
@@ -364,7 +364,7 @@ export default function ReviewPage() {
                             confermato
                           </span>
                         ) : (
-                          <button
+                          <button type="button"
                             onClick={() => onConfirmRow(row)}
                             disabled={busy}
                             className="rounded-lg border border-slate-300 px-3 py-1 text-xs hover:bg-slate-100 disabled:opacity-50"
