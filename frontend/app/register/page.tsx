@@ -67,8 +67,8 @@ export default function RegisterPage() {
 
         <form onSubmit={onSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium mb-1">Username</label>
-            <input
+            <label htmlFor="register-username" className="block text-sm font-medium mb-1">Username</label>
+            <input id="register-username"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               className="w-full rounded-lg border border-slate-300 px-3 py-2"
@@ -78,8 +78,8 @@ export default function RegisterPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">Email</label>
-            <input
+            <label htmlFor="register-email" className="block text-sm font-medium mb-1">Email</label>
+            <input id="register-email"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -89,10 +89,10 @@ export default function RegisterPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">
+            <label htmlFor="register-full-name" className="block text-sm font-medium mb-1">
               Nome completo
             </label>
-            <input
+            <input id="register-full-name"
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
               className="w-full rounded-lg border border-slate-300 px-3 py-2"
@@ -100,8 +100,8 @@ export default function RegisterPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">Password</label>
-            <input
+            <label htmlFor="register-password" className="block text-sm font-medium mb-1">Password</label>
+            <input id="register-password" aria-describedby="register-password-hint"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -109,16 +109,16 @@ export default function RegisterPage() {
               required
               minLength={12}
             />
-            <p className="text-xs text-slate-500 mt-1">
+            <p id="register-password-hint" className="text-xs text-slate-500 mt-1">
               Minimo 12 caratteri.
             </p>
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">
+            <label htmlFor="register-invite-code" className="block text-sm font-medium mb-1">
               Codice invito opzionale
             </label>
-            <input
+            <input id="register-invite-code"
               value={inviteCode}
               onChange={(e) => setInviteCode(e.target.value)}
               className="w-full rounded-lg border border-slate-300 px-3 py-2"

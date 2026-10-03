@@ -351,8 +351,8 @@ export default function TrendPage() {
         <Card className="space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-end gap-4">
             <div className="flex-1">
-              <label className="block text-sm font-medium mb-1">Esame</label>
-              <select
+              <label htmlFor="trend-test-select" className="block text-sm font-medium mb-1">Esame</label>
+              <select id="trend-test-select"
                 value={selected ?? ""}
                 onChange={(e) => setSelected(e.target.value)}
                 disabled={loading || codes.length === 0}

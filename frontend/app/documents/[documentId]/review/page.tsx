@@ -309,7 +309,7 @@ export default function ReviewPage() {
                             {row.value_text}
                           </span>
                         ) : (
-                          <input
+                          <input aria-label={`Valore numerico per ${row.test_name_normalized}`}
                             type="number"
                             step="any"
                             value={draft.value_numeric}
@@ -321,7 +321,7 @@ export default function ReviewPage() {
                         )}
                       </td>
                       <td className="px-4 py-3">
-                        <input
+                        <input aria-label={`Unita per ${row.test_name_normalized}`}
                           type="text"
                           value={draft.unit}
                           onChange={(e) =>
@@ -348,7 +348,7 @@ export default function ReviewPage() {
                         )}
                       </td>
                       <td className="px-4 py-3">
-                        <input
+                        <input aria-label={`Note per ${row.test_name_normalized}`}
                           type="text"
                           value={draft.notes}
                           onChange={(e) =>

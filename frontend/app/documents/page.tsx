@@ -289,7 +289,7 @@ export default function DocumentsPage() {
           </p>
 
           <form onSubmit={onUpload} className="space-y-4">
-            <input
+            <input aria-label="Seleziona file referto"
               ref={fileInputRef}
               type="file"
               accept=".pdf,.jpg,.jpeg,.png"
