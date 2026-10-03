@@ -27,6 +27,18 @@ from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, Tabl
 from app.db.models import Document, LabTest, Patient
 
 
+
+WATERMARK_TEXT = "VitaSync - Bozza personale - Verificare con medico"
+
+def _add_watermark(canv, _doc):
+    canv.saveState()
+    canv.setFillColor(colors.Color(0.78, 0.78, 0.78, 0.18))
+    canv.setFont("Helvetica-Bold", 24)
+    canv.translate(A4[0] / 2, A4[1] / 2)
+    canv.rotate(45)
+    canv.drawCentredString(0, 0, WATERMARK_TEXT)
+    canv.restoreState()
+
 def _fmt_value(value) -> str:
     if value is None:
         return "-"
@@ -228,5 +240,9 @@ def build_pdf_bytes(data: dict) -> bytes:
         )
     )
 
-    doc.build(story)
+    doc.build(
+        story,
+        onFirstPage=_add_watermark,
+        onLaterPages=_add_watermark,
+    )
     return buffer.getvalue()
