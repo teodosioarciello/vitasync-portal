@@ -48,6 +48,11 @@ const navItems: { href: string; title: string; description: string }[] = [
     description: "Andamento dei tuoi esami nel tempo.",
   },
   {
+    href: "/measurements",
+    title: "Misure",
+    description: "Peso, altezza e BMI.",
+  },
+  {
     href: "/notifications",
     title: "Notifiche",
     description: "Storico delle notifiche inviate.",
