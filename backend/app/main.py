@@ -37,6 +37,9 @@ DEFAULT_SECRET = "change-me-in-production"
 RATE_LIMITS = {
     "/api/auth/login": {"limit": 10, "window": 300},
     "/api/auth/register": {"limit": 5, "window": 600},
+    "/api/documents/upload": {"limit": 10, "window": 60},
+    "/api/reports/medical-summary.pdf": {"limit": 3, "window": 60},
+    "/api/exports/health-summary.md": {"limit": 5, "window": 60},
 }
 
 SECURITY_HEADERS = {

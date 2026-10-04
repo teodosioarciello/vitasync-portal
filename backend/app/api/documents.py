@@ -17,6 +17,7 @@ from app.schemas.auth import MessageResponse
 from app.schemas.document import DocumentOut
 from app.schemas.lab_test import ConfirmAllResponse, LabTestOut
 from app.services.audit_identity import mark_audit_user
+from app.services.ratelimit import check_rate_limit
 from app.services.document_delete import (
     permanent_delete_document,
     restore_document,
@@ -252,6 +253,22 @@ def extract_document(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    # Rate limit: 5 req per minuto per utente
+    allowed, remaining, retry_after = check_rate_limit(
+        f"extract:user:{current_user.id}", 5, 60
+    )
+    if not allowed:
+        logger.warning("Rate limit extract superato: user=%s", current_user.id)
+        raise HTTPException(
+            status_code=429,
+            detail=f"Troppe richieste. Riprova tra {retry_after} secondi.",
+            headers={
+                "Retry-After": str(retry_after),
+                "X-RateLimit-Limit": "5",
+                "X-RateLimit-Remaining": "0",
+            },
+        )
+
     mark_audit_user(request, current_user.id)
 
     document = _get_active_document(
@@ -268,20 +285,11 @@ def extract_document(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(exc),
         )
-    except FileNotFoundError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(exc),
-        )
-    except Exception as exc:  # noqa: BLE001
-        document.processing_status = "failed"
-        db.commit()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Estrazione fallita: {exc}",
-        )
 
-    return [LabTestOut.model_validate(lt) for lt in created]
+    document.processing_status = "completed"
+    db.commit()
+
+    return [LabTestOut.model_validate(lab) for lab in created]
 
 
 @router.post("/{document_id}/lab-tests/confirm-all", response_model=ConfirmAllResponse)
