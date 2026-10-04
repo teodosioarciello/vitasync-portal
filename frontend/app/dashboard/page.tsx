@@ -204,7 +204,7 @@ export default function DashboardPage() {
                             className="border-l-4 border-amber-500 pl-4"
                           >
                             <div className="font-medium text-slate-900">
-                              {alert.test_name || alert.rule_id}
+                              {alert.title_it || alert.test_name || alert.rule_id}
                             </div>
                             <div className="text-sm text-slate-600 mt-1">
                               {alert.message_it}

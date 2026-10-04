@@ -133,7 +133,7 @@ def evaluate_bmi_alert(bmi_result: dict) -> dict | None:
     if category in ("obese", "underweight"):
         severity = "attention"
         message = (
-            f"Il BMI calcolato ({bmi_val}) rientra nella fascia '{category_it}'. "
+            f"Il BMI calcolato ({bmi_val}) corrisponde alla fascia {category_it}. "
             "Utile parlarne con il medico curante."
         )
         return {
@@ -154,7 +154,7 @@ def evaluate_bmi_alert(bmi_result: dict) -> dict | None:
             "category": category,
             "category_it": category_it,
             "message_it": (
-                f"Il BMI calcolato ({bmi_val}) rientra nella fascia '{category_it}'. "
+                f"Il BMI calcolato ({bmi_val}) corrisponde alla fascia {category_it}. "
                 "Da tenere in osservazione."
             ),
         }
@@ -203,6 +203,21 @@ def compute_overall_status(alerts: list[dict]) -> str:
     if "watch" in severities:
         return "watch"
     return "no_attention_signals"
+
+
+def _alert_title(alert: dict) -> str:
+    """Titolo leggibile per ogni alert, usato dalla UI."""
+    kind = alert.get("kind")
+    if kind == "lab":
+        return alert.get("test_name") or alert.get("rule_id") or "Segnale"
+    if kind == "trend":
+        name = alert.get("test_name") or ""
+        return ("Trend " + name).strip()
+    if kind == "measurement":
+        return "Indice di massa corporea (BMI)"
+    if kind == "data":
+        return "Dati non recenti"
+    return alert.get("rule_id") or "Segnale"
 
 
 def build_health_summary(
@@ -273,6 +288,9 @@ def build_health_summary(
                 "test_name_normalized", code
             )
             therapy_context.append(ctx)
+
+    for a in alerts:
+        a.setdefault("title_it", _alert_title(a))
 
     status = compute_overall_status(alerts)
 
