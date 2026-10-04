@@ -76,6 +76,11 @@ const navItems: { href: string; title: string; description: string }[] = [
     description: "Peso, altezza e BMI.",
   },
   {
+    href: "/health-summary",
+    title: "Sintesi salute",
+    description: "Quadro narrativo e domande per il medico.",
+  },
+  {
     href: "/notifications",
     title: "Notifiche",
     description: "Storico delle notifiche inviate.",
