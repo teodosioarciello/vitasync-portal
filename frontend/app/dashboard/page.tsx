@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Card, Button, EmptyState } from "@/components/ui";
+import { Card, Button, EmptyState, Alert } from "@/components/ui";
 import { apiFetch } from "@/lib/api";
 
 type Patient = {
@@ -18,9 +18,32 @@ type Reminder = {
   status: string;
 };
 
-// Nav dashboard: solo pagine statiche raggiungibili direttamente.
-// Le route dinamiche tipo /documents/[documentId]/review non vanno qui:
-// necessitano di un ID e vengono raggiunte dalle pagine che lo conoscono.
+type HealthSummary = {
+  status:
+    | "insufficient_data"
+    | "no_attention_signals"
+    | "watch"
+    | "attention"
+    | "prompt_review";
+  alerts: Array<{
+    rule_id: string;
+    severity: string;
+    kind: string;
+    test_code?: string;
+    test_name?: string;
+    message_it: string;
+  }>;
+  therapy_context: Array<{
+    medicine_name: string;
+    rule_id: string;
+    note_it: string;
+    related_test_name: string;
+  }>;
+  missing_data: string[];
+  patient_id: string;
+  generated_at: string;
+};
+
 const navItems: { href: string; title: string; description: string }[] = [
   {
     href: "/documents",
@@ -73,6 +96,9 @@ export default function DashboardPage() {
   const router = useRouter();
   const [patient, setPatient] = useState<Patient | null>(null);
   const [reminders, setReminders] = useState<Reminder[]>([]);
+  const [healthSummary, setHealthSummary] = useState<HealthSummary | null>(
+    null
+  );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [loggingOut, setLoggingOut] = useState(false);
@@ -87,27 +113,32 @@ export default function DashboardPage() {
           `/api/reminders?patient_id=${me.id}&status=pending`
         );
         setReminders(allReminders.slice(0, 5));
+
+        try {
+          const summary = await apiFetch<HealthSummary>(
+            `/api/health-summary?patient_id=${me.id}`
+          );
+          setHealthSummary(summary);
+        } catch {
+          setHealthSummary(null);
+        }
       } catch (err: any) {
         setError(err.message || "Impossibile caricare la dashboard.");
       } finally {
         setLoading(false);
       }
     }
-
     load();
   }, []);
 
   async function handleLogout() {
     setLoggingOut(true);
-
     try {
       await apiFetch("/api/auth/logout", { method: "POST" }).catch(() => {});
-
       if (typeof window !== "undefined") {
         localStorage.removeItem("token");
         localStorage.removeItem("user");
       }
-
       router.push("/login");
     } catch (err) {
       console.error("Errore durante il logout:", err);
@@ -129,7 +160,6 @@ export default function DashboardPage() {
               Benvenuto nel tuo portale sanitario personale.
             </p>
           </div>
-
           <Button
             variant="ghost"
             size="sm"
@@ -154,11 +184,67 @@ export default function DashboardPage() {
           </Card>
         ) : (
           <>
+            {healthSummary &&
+              healthSummary.status !== "insufficient_data" && (
+                <section>
+                  <h2 className="text-xl font-semibold text-slate-900 mb-4">
+                    Segnali di attenzione
+                  </h2>
+                  <Card>
+                    {healthSummary.status === "no_attention_signals" ? (
+                      <div className="text-sm text-slate-600">
+                        Nessun segnale di attenzione rilevato nei dati
+                        confermati.
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        {healthSummary.alerts.map((alert, idx) => (
+                          <div
+                            key={idx}
+                            className="border-l-4 border-amber-500 pl-4"
+                          >
+                            <div className="font-medium text-slate-900">
+                              {alert.test_name || alert.rule_id}
+                            </div>
+                            <div className="text-sm text-slate-600 mt-1">
+                              {alert.message_it}
+                            </div>
+                          </div>
+                        ))}
+                        {healthSummary.therapy_context.length > 0 && (
+                          <div className="mt-4 pt-4 border-t border-slate-200">
+                            <div className="text-sm font-medium text-slate-700 mb-2">
+                              Contesto terapie attive
+                            </div>
+                            {healthSummary.therapy_context.map((ctx, idx) => (
+                              <div
+                                key={idx}
+                                className="text-sm text-slate-600 mb-2"
+                              >
+                                <span className="font-medium">
+                                  {ctx.medicine_name}
+                                </span>{" "}
+                                ({ctx.related_test_name}): {ctx.note_it}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {healthSummary.status === "prompt_review" && (
+                          <Alert variant="error" className="mt-4">
+                            Sono presenti segnali che richiedono consulto medico
+                            in tempi brevi.
+                          </Alert>
+                        )}
+                      </div>
+                    )}
+                  </Card>
+                </section>
+              )}
+
             <section>
               <h2 className="text-xl font-semibold text-slate-900 mb-4">
                 Promemoria in scadenza
               </h2>
-
               {reminders.length === 0 ? (
                 <Card>
                   <EmptyState
@@ -187,10 +273,7 @@ export default function DashboardPage() {
                             {new Date(r.scheduled_at).toLocaleString("it-IT")}
                           </p>
                         </div>
-
-                        <span className="text-xs text-slate-500">
-                          Pendente
-                        </span>
+                        <span className="text-xs text-slate-500">Pendente</span>
                       </div>
                     </Card>
                   ))}
@@ -202,7 +285,6 @@ export default function DashboardPage() {
               <h2 className="text-xl font-semibold text-slate-900 mb-4">
                 Azioni rapide
               </h2>
-
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {navItems.map((item) => (
                   <Link key={item.href} href={item.href}>
@@ -222,8 +304,8 @@ export default function DashboardPage() {
         )}
 
         <footer className="text-xs text-slate-500 text-center pt-8">
-          VitaSync Portal e&apos; uno strumento di organizzazione personale.
-          Non sostituisce il parere medico.
+          VitaSync Portal è uno strumento di organizzazione personale. Non
+          sostituisce il parere medico.
         </footer>
       </div>
     </main>
