@@ -18,6 +18,7 @@ from app.core.config import settings
 from app.db import audit_models  # noqa: F401  (registra AuditLog su Base.metadata)
 from app.db import models  # noqa: F401
 from app.db import therapy_models  # noqa: F401  (registra Medicine/Therapy/Reminder)
+from app.db import weight_models  # noqa: F401  (registra WeightMeasurement)
 from app.db.session import Base, engine
 from app.services.audit import derive_action, record_audit
 from app.services.audit_identity import get_audit_user_id
@@ -89,6 +90,7 @@ async def lifespan(app: FastAPI):
 from app.api import notifications
 from app.api import reports
 from app.api import settings as settings_api
+from app.api import measurements
 app = FastAPI(
     title="VitaSync Portal API",
     version="0.1.0",
@@ -200,6 +202,7 @@ app.include_router(reminders.router)
 app.include_router(notifications.router, prefix="/api/notifications", tags=["notifications"])
 app.include_router(reports.router, prefix="/api/reports", tags=["reports"])
 app.include_router(settings_api.router, prefix="/api/settings", tags=["settings"])
+app.include_router(measurements.router)
 
 
 @app.get("/health")
