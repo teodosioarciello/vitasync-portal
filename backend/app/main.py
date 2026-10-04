@@ -40,6 +40,7 @@ RATE_LIMITS = {
     "/api/documents/upload": {"limit": 10, "window": 60},
     "/api/reports/medical-summary.pdf": {"limit": 3, "window": 60},
     "/api/exports/health-summary.md": {"limit": 5, "window": 60},
+    "/api/ai-assist/analyze": {"limit": 2, "window": 300},
 }
 
 SECURITY_HEADERS = {
@@ -96,6 +97,7 @@ from app.api import settings as settings_api
 from app.api import measurements
 from app.api import health_summary
 from app.api import exports
+from app.api import ai_assist
 app = FastAPI(
     title="VitaSync Portal API",
     version="0.1.0",
@@ -210,6 +212,7 @@ app.include_router(settings_api.router, prefix="/api/settings", tags=["settings"
 app.include_router(measurements.router)
 app.include_router(health_summary.router)
 app.include_router(exports.router)
+app.include_router(ai_assist.router)
 
 
 @app.get("/health")

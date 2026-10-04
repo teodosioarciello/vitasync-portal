@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { apiFetch } from "@/lib/api";
-import { Alert, Badge, Card, EmptyState } from "@/components/ui";
+import { Alert, Badge, Button, Card, EmptyState } from "@/components/ui";
 
 type Patient = { id: string; display_name: string };
 
@@ -19,6 +19,26 @@ type Narrative = {
   questions_for_doctor: string[];
   disclaimers: string[];
   missing_data: string[];
+};
+
+type AiStatus = {
+  enabled: boolean;
+  provider: string;
+  model: string;
+  allowed_providers: string[];
+  data_scope: string;
+  stored: boolean;
+  disclaimer: string;
+};
+
+type AiAnswer = {
+  answer: string;
+  provider: string;
+  model: string;
+  generated_at: string;
+  disclaimer: string;
+  data_scope: string;
+  stored: boolean;
 };
 
 function statusBadge(status: string) {
@@ -39,6 +59,10 @@ function statusBadge(status: string) {
 export default function HealthSummaryPage() {
   const [patient, setPatient] = useState<Patient | null>(null);
   const [narrative, setNarrative] = useState<Narrative | null>(null);
+  const [aiStatus, setAiStatus] = useState<AiStatus | null>(null);
+  const [aiAnswer, setAiAnswer] = useState<AiAnswer | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -58,7 +82,28 @@ export default function HealthSummaryPage() {
       }
     }
     init();
+    apiFetch<AiStatus>("/api/ai-assist/status")
+      .then(setAiStatus)
+      .catch(() => setAiStatus(null));
   }, []);
+
+  async function handleAiAnalyze() {
+    if (!patient) return;
+    setAiLoading(true);
+    setAiError(null);
+    setAiAnswer(null);
+    try {
+      const res = await apiFetch<AiAnswer>(
+        `/api/ai-assist/analyze?patient_id=${patient.id}`,
+        { method: "POST" }
+      );
+      setAiAnswer(res);
+    } catch (err: any) {
+      setAiError(err.message || "Analisi AI fallita.");
+    } finally {
+      setAiLoading(false);
+    }
+  }
 
   const badge = narrative ? statusBadge(narrative.status) : null;
 
@@ -168,6 +213,55 @@ export default function HealthSummaryPage() {
                 ))}
               </ul>
             </Alert>
+
+            <Card>
+              <h2 className="text-lg font-semibold mb-2">AI esterna (opzionale)</h2>
+              {!aiStatus ? (
+                <p className="text-sm text-slate-500">Caricamento stato AI...</p>
+              ) : !aiStatus.enabled ? (
+                <Alert variant="info" title="AI esterna disabilitata (default)">
+                  <p className="text-sm">
+                    Per attivarla impostare <code>AI_EXTERNAL_ENABLED=true</code> e
+                    un <code>AI_PROVIDER</code> (mock / ollama / openai / anthropic) nel
+                    .env e riavviare il backend.
+                  </p>
+                  <p className="text-sm mt-2">
+                    Quando e&apos; attiva, viene inviato <strong>solo</strong> l&apos;export
+                    pseudonimizzato: nessun nome o titolo documento reale lascia il portale.
+                    La risposta non viene salvata.
+                  </p>
+                </Alert>
+              ) : (
+                <div className="space-y-3">
+                  <p className="text-sm text-slate-700">
+                    Provider: <strong>{aiStatus.provider}</strong> | Modello:{" "}
+                    <strong>{aiStatus.model}</strong> | Ambito dati:{" "}
+                    <strong>{aiStatus.data_scope}</strong> | Salvataggio risposta:{" "}
+                    <strong>{aiStatus.stored ? "si" : "no"}</strong>
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    Viene inviato solo l&apos;export pseudonimizzato. Verifica una guardia
+                    privacy blocca eventuali identificatori reali prima della chiamata.
+                  </p>
+                  <Button onClick={handleAiAnalyze} disabled={aiLoading} loading={aiLoading}>
+                    {aiLoading ? "Analisi in corso..." : "Analizza con AI esterna"}
+                  </Button>
+                  {aiError && <Alert variant="error">{aiError}</Alert>}
+                  {aiAnswer && (
+                    <div className="mt-2 border-l-4 border-red-500 bg-red-50 p-4 rounded-lg">
+                      <div className="text-xs font-semibold text-red-700 mb-2">
+                        ATTENZIONE: risposta generata da AI esterna su dati pseudonimizzati.
+                        Non e&apos; una diagnosi e non sostituisce il medico.
+                      </div>
+                      <pre className="whitespace-pre-wrap text-sm text-slate-800 font-sans">
+                        {aiAnswer.answer}
+                      </pre>
+                      <div className="text-xs text-red-600 mt-3">{aiAnswer.disclaimer}</div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </Card>
           </>
         )}
 

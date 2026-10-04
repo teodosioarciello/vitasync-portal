@@ -1,4 +1,4 @@
-﻿from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -47,6 +47,17 @@ class Settings(BaseSettings):
     allowed_mime_types: str = "application/pdf,image/jpeg,image/png,image/heic"
 
     ai_enabled: bool = False
+
+    # Sprint 6.1 - AI esterna opzionale (default off)
+    ai_external_enabled: bool = False
+    ai_provider: str = "ollama"
+    ai_model: str = "llama3"
+    ai_api_key: str | None = None
+    ai_openai_base_url: str = "https://api.openai.com/v1"
+    ai_anthropic_base_url: str = "https://api.anthropic.com/v1"
+    ai_ollama_base_url: str = "http://ollama:11434"
+    ai_timeout_seconds: int = 30
+    ai_max_prompt_chars: int = 12000
 
     registration_mode: str = "open"
     require_invite_code: bool = False
