@@ -92,6 +92,7 @@ from app.api import reports
 from app.api import settings as settings_api
 from app.api import measurements
 from app.api import health_summary
+from app.api import exports
 app = FastAPI(
     title="VitaSync Portal API",
     version="0.1.0",
@@ -205,6 +206,7 @@ app.include_router(reports.router, prefix="/api/reports", tags=["reports"])
 app.include_router(settings_api.router, prefix="/api/settings", tags=["settings"])
 app.include_router(measurements.router)
 app.include_router(health_summary.router)
+app.include_router(exports.router)
 
 
 @app.get("/health")
