@@ -53,6 +53,7 @@ services:
       - "8001:8000"          # porta ostile 8001 per non conflittare con main stack
     volumes:
       - ./backend:/app
+      - ./scripts:/app/scripts
       - ./data_test:/app/data
     environment:
       ENVIRONMENT: development
