@@ -59,6 +59,9 @@ def _is_junk_line(line: str) -> bool:
         return True
     if re.search(r"(?i)\\bfirma\\s+digitale\\b", line):
         return True
+    # righe tipo "AUT. MIN. SAL. N. 1234 DEL 01/01/2010" (autorizzazioni ministeriali)
+    if re.search(r"(?i)\\baut\\.?\\s+min", line) or re.search(r"(?i)\\bautorizz", line):
+        return True
     words = {re.sub(r"[.:,;()]+$", "", w.lower()) for w in line.split()}
     if words & JUNK_LINE_WORDS:
         return True
