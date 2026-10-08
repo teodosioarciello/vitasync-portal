@@ -308,111 +308,60 @@ HEADER_KEYWORDS = {
 
 # Parole che indicano righe di intestazione/footer/indirizzi/firme: mai esami.
 JUNK_LINE_WORDS = {
-    "pag",
-    "pagina",
-    "tel",
-    "telefono",
-    "fax",
-    "email",
-    "e-mail",
-    "www",
-    "http",
-    "https",
-    "via",
-    "viale",
-    "corso",
-    "piazza",
-    "piazzale",
-    "vicolo",
-    "indirizzo",
-    "referto",
-    "referti",
-    "sottoscritto",
-    "firmato",
-    "firma",
-    "digitale",
-    "digitalmente",
-    "legge",
-    "normativa",
-    "d.lgs",
-    "dlgs",
-    "artt",
-    "art",
-    "comma",
-    "autorizzazione",
-    "aut.",
-    "note",
-    "nota",
-    "avvertenza",
-    "avvertenze",
-    "metodo",
-    "letto",
-    "eseguito",
-    "prelevato",
+    "pag", "pagina", "tel", "telefono", "fax", "email", "e-mail", "www",
+    "http", "https", "via", "viale", "corso", "piazza", "piazzale", "vicolo",
+    "indirizzo", "referto", "referti", "sottoscritto", "firmato", "firma",
+    "digitale", "digitalmente", "legge", "normativa", "d.lgs", "dlgs",
+    "artt", "art", "comma", "autorizzazione", "aut.", "note", "nota",
+    "avvertenza", "avvertenze", "metodo", "letto", "eseguito", "prelevato",
     "ricevuto",
 }
 
-# Parole di "intestazione": se compaiono come PRIME parole della riga, la riga
-# è una frase (footer/intestazione), non un nome di esame.
+# Se compaiono come PRIME parole della riga, la riga e' una frase (footer),
+# non un nome di esame.
 JUNK_LEADING_WORDS = {
-    "medico",
-    "medica",
-    "dott",
-    "dott.ssa",
-    "dottore",
-    "dottoressa",
-    "laboratorio",
-    "synlab",
-    "firma",
-    "firmato",
-    "referto",
-    "pag",
-    "pagina",
+    "medico", "medica", "dott", "dott.ssa", "dottore", "dottoressa",
+    "laboratorio", "synlab", "firma", "firmato", "referto", "pag", "pagina",
 }
 
 # Valori numerici oltre questi limiti sono quasi sempre artefatti
-# (date, CAP, numeri di telefono, importi), non valori di laboratorio.
+# (date, CAP, telefoni, importi), non valori di laboratorio.
 MAX_PLAUSIBLE_VALUE = 1_000_000.0
-MIN_PLAUSIBLE_VALUE = -1_000_000.0
 MAX_NAME_TOKENS = 6
 
 
 def _is_junk_line(line: str) -> bool:
     """True se la riga sembra intestazione/footer/indirizzo/testo legale."""
     upper = line.upper()
-    # footer tipici: "Pagina 1 di 4", "1/4" da soli
-    if re.search(r"\bPAGINA\s+\d+\s+(DI|DI)\b", upper):
+    if re.search(r"\bPAGINA\s+\d+\b", upper):
         return True
     if re.fullmatch(r"(?i)pag\.?\s*\d+\s*(/\s*\d+)?", line.strip()):
         return True
-    # indirizzi e contatti
-    if re.search(r"(?i)\b(via|viale|corso|piazza|piazzale|vicolo)\s+[a-zàèéìòù0-9]", line):
+    if re.search(r"(?i)\b(via|viale|corso|piazza|piazzale|vicolo)\s+[a-z\u00e0\u00e8\u00e9\u00ec\u00f2\u00f90-9]", line):
         return True
     if re.search(r"(?i)(www\.|https?://|@[\w.-]+\.\w{2,})", line):
         return True
-    # numeri di telefono / fax
     if re.search(r"(?i)\b(tel|fax)[.\s:/]*[\d\s.+]{6,}", line):
         return True
-    # riferimenti normativi
     if re.search(r"(?i)\b(d\.?\s*lgs|artt?\.?)\s*\.?\s*\d", line):
         return True
     if re.search(r"(?i)\bfirma\s+digitale\b", line):
         return True
-    # parole chiave generiche in qualunque posizione
     words = {re.sub(r"[.:,;()]+$", "", w.lower()) for w in line.split()}
     if words & JUNK_LINE_WORDS:
         return True
-    # prime parole che indicano una frase di intestazione/footer
     first_words = [re.sub(r"[.:,;()]+$", "", w.lower()) for w in line.split()[:2]]
     if any(w in JUNK_LEADING_WORDS for w in first_words):
         return True
     return False
 
 
-def _value_is_plausible(num: float | None) -> bool:
+def _value_is_plausible(num) -> bool:
     if num is None:
         return True  # valore testuale (es. "negativo"): passa
     return abs(num) <= MAX_PLAUSIBLE_VALUE
+
+
 
 
 def parse_lab_lines(text: str) -> list[dict]:
@@ -427,8 +376,7 @@ def parse_lab_lines(text: str) -> list[dict]:
         if len(tokens) < 2:
             continue
 
-        # righe di tabella con header in qualunque posizione (es. "ESAME VALORE UNITA RIF")
-        if any(t.upper().strip("():.") in HEADER_KEYWORDS for t in tokens):
+        if any(t.upper().strip("():.") in HEADER_KEYWORDS for t in tokens[:3]):
             continue
 
         if _is_junk_line(line):
@@ -460,7 +408,7 @@ def parse_lab_lines(text: str) -> list[dict]:
         value_num, value_text = parse_value(value_raw)
 
         # scarta valori numericamente implausibili (date, telefoni, CAP):
-        # se il primo token numerico non è plausibile, cerca il successivo
+        # se il primo token numerico non e' plausibile, cerca il successivo
         if value_num is not None and not _value_is_plausible(value_num):
             first_bad = idx_val
             idx_val = None
@@ -479,7 +427,6 @@ def parse_lab_lines(text: str) -> list[dict]:
             rest = tokens[idx_val + 1 :]
             unit, range_str = extract_unit_and_range(rest)
             value_num, value_text = parse_value(value_raw)
-
         rmin, rmax, rtext = parse_reference(range_str)
         code, display, conf = normalize_exam_name(name)
         flag = compute_flag(value_num, rmin, rmax)
