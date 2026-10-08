@@ -78,6 +78,11 @@ services:
       OCR_OLLAMA_MODEL: qwen2.5vl:3b
       OCR_OLLAMA_TIMEOUT_SECONDS: "300"
       OCR_FALLBACK_TO_TESSERACT: "true"
+      # --- Sprint 6.3: estrazione valori con SLM locale (legge il referto e
+      # restituisce JSON degli esami; niente dati su internet) ---
+      LAB_EXTRACT_ENABLED: "true"
+      LAB_EXTRACT_MODEL: ""                     # vuoto = usa OCR_OLLAMA_MODEL
+      LAB_EXTRACT_MIN_ITEMS: "2"
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
   frontend:

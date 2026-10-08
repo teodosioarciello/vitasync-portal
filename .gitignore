@@ -1,6 +1,13 @@
+# Python
 __pycache__/
 *.pyc
+
+# Environment & Secrets
 .env
-data_test/
+.env.local
+.env.*.local
+!.env.example
+!.env.production.template
+
+# Archives
 *.zip
-*.patch

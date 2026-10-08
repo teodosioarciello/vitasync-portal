@@ -68,6 +68,12 @@ class Settings(BaseSettings):
     ocr_ollama_timeout_seconds: int = 300
     ocr_fallback_to_tesseract: bool = True
 
+    # Sprint 6.3 - estrazione valori esami con SLM locale via Ollama (/api/chat, JSON).
+    # lab_extract_enabled=false riproduce il comportamento solo-parser-euristico.
+    lab_extract_enabled: bool = False
+    lab_extract_model: str = ""  # vuoto => usa ocr_ollama_model
+    lab_extract_min_items: int = 2  # sotto questa soglia il parser euristico vince
+
     registration_mode: str = "open"
     require_invite_code: bool = False
     invite_code: str | None = None
