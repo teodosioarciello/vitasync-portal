@@ -15,6 +15,24 @@ services:
     ports:
       - "6379:6379"
 
+  # Sprint OCR - VLM locale per OCR intelligente (solo CPU, ok su Raspberry Pi 5).
+  # Avvio: docker compose --profile ollama up -d
+  # Primo utilizzo: docker exec -it vitasync-ollama ollama pull qwen2.5vl:3b
+  ollama:
+    image: ollama/ollama:latest
+    container_name: vitasync-ollama
+    profiles: ["ollama"]
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    environment:
+      OLLAMA_KEEP_ALIVE: "30m"
+      OLLAMA_MAX_LOADED_MODELS: "1"
+      # Su RPi5 (ARM64) l'immagine ollama/ollama include il runtime CPU;
+      # limitare la RAM se serve: deploy.resources o OLLAMA_NUM_PARALLEL=1
+    restart: unless-stopped
+
   backend:
     build: ./backend
     env_file:
@@ -46,3 +64,4 @@ services:
 volumes:
   pgdata:
   frontend_node_modules:
+  ollama_data:

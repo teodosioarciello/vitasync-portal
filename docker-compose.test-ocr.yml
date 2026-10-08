@@ -1,0 +1,102 @@
+# ============================================================================
+# Vitasync - Test locale OCR via VLM (Docker Desktop: Mac, Windows, Linux)
+# ============================================================================
+# Stack minimale per provare l'OCR con Ollama SENZA toccare il compose principale.
+# Avvio:   docker compose -f docker-compose.test-ocr.yml up -d --build
+# Pull:    docker exec -it vitasync-ollama-test ollama pull qwen2.5vl:3b
+# Health:  curl http://localhost:8001/health
+# UI:      http://localhost:3002
+# Stop:    docker compose -f docker-compose.test-ocr.yml down
+# ============================================================================
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: vitasync-pg-test
+    environment:
+      POSTGRES_DB: vitasync
+      POSTGRES_USER: vitasync
+      POSTGRES_PASSWORD: vitasync_dev_password
+    ports:
+      - "5433:5432"          # porta ostile 5433 per non conflittare con un'eventuale istanza locale
+    volumes:
+      - pgdata_test:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    container_name: vitasync-redis-test
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: vitasync-ollama-test
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data_test:/root/.ollama
+    environment:
+      OLLAMA_KEEP_ALIVE: "30m"
+      OLLAMA_MAX_LOADED_MODELS: "1"
+      OLLAMA_NUM_PARALLEL: "1"
+      # Su Docker Desktop (Mac/Windows) Ollama gira in CPU o Metal a seconda
+      # dell'host; qwen2.5vl:3b richiede ~4 GB liberi alla macchina.
+      # Se serve limitare la RAM del container aggiungi deploy.resources.limits.
+    restart: unless-stopped
+
+  backend:
+    build: ./backend
+    container_name: vitasync-backend-test
+    depends_on:
+      - postgres
+      - redis
+      - ollama
+    ports:
+      - "8001:8000"          # porta ostile 8001 per non conflittare con main stack
+    volumes:
+      - ./backend:/app
+      - ./scripts:/app/scripts
+      - ./data_test:/app/data
+    environment:
+      ENVIRONMENT: development
+      SECRET_KEY: test-only-secret-change-me
+      DATABASE_URL: postgresql+psycopg://vitasync:vitasync_dev_password@postgres:5432/vitasync
+      REDIS_URL: redis://redis:6379/0
+      CORS_ORIGINS: http://localhost:3002
+      FRONTEND_URL: http://localhost:3002
+      SESSION_COOKIE_NAME: vitasync_session_test
+      COOKIE_SECURE: "false"
+      COOKIE_SAMESITE: lax
+      EMAIL_VERIFICATION_REQUIRED: "true"
+      DEV_AUTO_VERIFY_EMAIL: "true"
+      DEV_EXPOSE_VERIFICATION_LINK: "true"
+      SMTP_HOST: ""
+      STORAGE_BACKEND: local
+      LOCAL_STORAGE_PATH: /app/data/documents
+      AI_ENABLED: "false"
+      # --- Impostazioni OCR sotto test ---
+      OCR_BACKEND: hybrid                       # VLM + fallback Tesseract
+      OCR_OLLAMA_BASE_URL: http://ollama:11434  # hostname interno della rete compose
+      OCR_OLLAMA_MODEL: qwen2.5vl:3b
+      OCR_OLLAMA_TIMEOUT_SECONDS: "300"
+      OCR_FALLBACK_TO_TESSERACT: "true"
+      # --- Sprint 6.3: estrazione valori con SLM locale (legge il referto e
+      # restituisce JSON degli esami; niente dati su internet) ---
+      LAB_EXTRACT_ENABLED: "true"
+      LAB_EXTRACT_MODEL: ""                     # vuoto = usa OCR_OLLAMA_MODEL
+      LAB_EXTRACT_MIN_ITEMS: "2"
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  frontend:
+    build: ./frontend
+    container_name: vitasync-frontend-test
+    depends_on:
+      - backend
+    ports:
+      - "3002:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8001
+      NEXT_TELEMETRY_DISABLED: "1"
+    command: npm run dev
+
+volumes:
+  pgdata_test:
+  ollama_data_test:

@@ -217,13 +217,25 @@ app.include_router(ai_assist.router)
 
 @app.get("/health")
 def health():
+    ocr_backend = (settings.ocr_backend or "tesseract").strip().lower()
+    ocr_ollama_reachable = None
+    if ocr_backend in {"ollama", "hybrid"} or settings.lab_extract_enabled:
+        from app.services.ocr_vlm import ollama_is_available
+
+        ocr_ollama_reachable = ollama_is_available()
+
     return {
         "status": "ok",
         "service": "vitasync-api",
         "environment": settings.environment,
         "ai_enabled": settings.ai_enabled,
         "storage_backend": settings.storage_backend,
-        "extraction": "pdf-local-v1",
+        "ocr_backend": ocr_backend,
+        "ocr_ollama_model": settings.ocr_ollama_model,
+        "ocr_ollama_reachable": ocr_ollama_reachable,
+        "lab_extract_enabled": settings.lab_extract_enabled,
+        "lab_extract_model": settings.lab_extract_model or settings.ocr_ollama_model,
+        "extraction": "pdf-local-v1+slm",
         "hardening": "lite-v1",
         "therapy": "b1-v1",
         "audit": "identity-v1",

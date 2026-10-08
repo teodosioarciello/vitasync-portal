@@ -3,20 +3,97 @@ import re
 from pathlib import Path
 
 import fitz
+from PIL import Image
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.db.models import Document, LabTest
+from app.services import lab_ai
 from app.services.ocr import (
     extract_text_from_image,
     extract_text_from_pdf_with_ocr,
     is_supported_image_mime,
+    ocr_image_detailed,
+    ocr_pdf_pages_detailed,
 )
 
 logger = logging.getLogger(__name__)
 
 LOCAL_STORAGE_ROOT = Path(settings.local_storage_path)
 PARSER_VERSION = "ocr-hardened-v1"
+PARSER_VERSION_AI = "slm-ollama-v1"
+
+
+def _ai_items_to_parsed(items: list[dict]) -> list[dict]:
+    """Converte i dict restituiti dall'SLM nel formato interno 'parsed'."""
+    parsed: list[dict] = []
+    for it in items:
+        code, display, conf = normalize_exam_name(it["name"])
+        flag = compute_flag(it["value"], it.get("ref_min"), it.get("ref_max"))
+        if flag is None and it.get("flag"):
+            flag = {"low": "below_range", "high": "above_range", "normal": "normal"}[it["flag"]]
+        rtext = None
+        rmin, rmax = it.get("ref_min"), it.get("ref_max")
+        if rmin is not None or rmax is not None:
+            rtext = f"{rmin if rmin is not None else ''} - {rmax if rmax is not None else ''}".strip(" -")
+        parsed.append(
+            {
+                "test_code": code,
+                "test_name_original": it["name"],
+                "test_name_normalized": display,
+                "value_numeric": it["value"],
+                "value_text": None,
+                "unit": it.get("unit"),
+                "reference_min": rmin,
+                "reference_max": rmax,
+                "reference_text": rtext,
+                "flag": flag,
+                "method": None,
+                "confidence": max(conf, 0.75),
+            }
+        )
+    return parsed
+
+
+def _try_ai_extraction(path: Path, mime: str, text: str) -> tuple[list[dict], str] | None:
+    """
+    Estrazione valori con SLM locale (Ollama). Ritorna (parsed, sorgente) oppure
+    None se disabilitata/fallita (il chiamante usera' il parser euristico).
+    Mai dati verso internet: endpoint sempre settings.ocr_ollama_base_url (locale).
+    """
+    if not settings.lab_extract_enabled:
+        return None
+
+    try:
+        if mime == "application/pdf":
+            # prima sul testo embedded (veloce, nessun OCR); se vuoto, vision sulla pagina 1
+            items = lab_ai.extract_lab_values_from_text(text)
+            source = "ai-text"
+            if len(items) < max(1, settings.lab_extract_min_items // 2):
+                logger.info("AI su testo PDF: %d item, provo vision su pagina 1.", len(items))
+                doc = fitz.open(str(path))
+                try:
+                    pix = doc[0].get_pixmap(dpi=150)
+                    img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+                finally:
+                    doc.close()
+                items_vision = lab_ai.extract_lab_values_from_image(img)
+                if len(items_vision) > len(items):
+                    items, source = items_vision, "ai-vision"
+        else:
+            with Image.open(path) as raw_img:
+                from app.services.ocr import _prepare_image
+
+                items = lab_ai.extract_lab_values_from_image(_prepare_image(raw_img))
+            source = "ai-vision"
+
+        if not items:
+            logger.warning("Estrazione AI (%s): nessun valore valido, uso parser euristico.", source)
+            return None
+        return _ai_items_to_parsed(items), source
+    except Exception as exc:
+        logger.warning("Estrazione AI fallita (%s), uso parser euristico.", exc)
+        return None
 
 STATUS_WORDS = {
     "negativo",
@@ -206,6 +283,13 @@ def normalize_exam_name(raw: str) -> tuple[str, str, float]:
         code, display = OCR_COMPACT_ALIASES[ocr_compact]
         return code, display, 0.75
 
+    # sottostringhe note (es. "EMOGLOBINA GLICATA HBA1C" da referto AI):
+    # utile per la pipeline SLM dove il nome puo' essere una variante estesa
+    if len(key) >= 4:
+        for syn_key, (code, display) in EXAM_SYNONYMS.items():
+            if len(syn_key) >= 4 and f" {syn_key} " in f" {key} ":
+                return code, display, 0.80
+
     return _slug(raw), _title(raw), 0.50
 
 
@@ -304,6 +388,66 @@ HEADER_KEYWORDS = {
     "CODICE",
 }
 
+# Parole che indicano righe di intestazione/footer/indirizzi/firme: mai esami.
+JUNK_LINE_WORDS = {
+    "pag", "pagina", "tel", "telefono", "fax", "email", "e-mail", "www",
+    "http", "https", "via", "viale", "corso", "piazza", "piazzale", "vicolo",
+    "indirizzo", "referto", "referti", "sottoscritto", "firmato", "firma",
+    "digitale", "digitalmente", "legge", "normativa", "d.lgs", "dlgs",
+    "artt", "art", "comma", "autorizzazione", "aut.", "note", "nota",
+    "avvertenza", "avvertenze", "metodo", "letto", "eseguito", "prelevato",
+    "ricevuto",
+}
+
+# Se compaiono come PRIME parole della riga, la riga e' una frase (footer),
+# non un nome di esame.
+JUNK_LEADING_WORDS = {
+    "medico", "medica", "dott", "dott.ssa", "dottore", "dottoressa",
+    "laboratorio", "synlab", "firma", "firmato", "referto", "pag", "pagina",
+}
+
+# Valori numerici oltre questi limiti sono quasi sempre artefatti
+# (date, CAP, telefoni, importi), non valori di laboratorio.
+MAX_PLAUSIBLE_VALUE = 1_000_000.0
+MAX_NAME_TOKENS = 6
+
+
+def _is_junk_line(line: str) -> bool:
+    """True se la riga sembra intestazione/footer/indirizzo/testo legale."""
+    upper = line.upper()
+    if re.search(r"\bPAGINA\s+\d+\b", upper):
+        return True
+    if re.fullmatch(r"(?i)pag\.?\s*\d+\s*(/\s*\d+)?", line.strip()):
+        return True
+    if re.search(r"(?i)\b(via|viale|corso|piazza|piazzale|vicolo)\s+[a-z\u00e0\u00e8\u00e9\u00ec\u00f2\u00f90-9]", line):
+        return True
+    if re.search(r"(?i)(www\.|https?://|@[\w.-]+\.\w{2,})", line):
+        return True
+    if re.search(r"(?i)\b(tel|fax)[.\s:/]*[\d\s.+]{6,}", line):
+        return True
+    if re.search(r"(?i)\b(d\.?\s*lgs|artt?\.?)\s*\.?\s*\d", line):
+        return True
+    if re.search(r"(?i)\bfirma\s+digitale\b", line):
+        return True
+    # righe tipo "AUT. MIN. SAL. N. 1234 DEL 01/01/2010" (autorizzazioni ministeriali)
+    if re.search(r"(?i)\baut\.?\s+min", line) or re.search(r"(?i)\bautorizz", line):
+        return True
+    words = {re.sub(r"[.:,;()]+$", "", w.lower()) for w in line.split()}
+    if words & JUNK_LINE_WORDS:
+        return True
+    first_words = [re.sub(r"[.:,;()]+$", "", w.lower()) for w in line.split()[:2]]
+    if any(w in JUNK_LEADING_WORDS for w in first_words):
+        return True
+    return False
+
+
+def _value_is_plausible(num) -> bool:
+    if num is None:
+        return True  # valore testuale (es. "negativo"): passa
+    return abs(num) <= MAX_PLAUSIBLE_VALUE
+
+
+
 
 def parse_lab_lines(text: str) -> list[dict]:
     results: list[dict] = []
@@ -318,6 +462,9 @@ def parse_lab_lines(text: str) -> list[dict]:
             continue
 
         if any(t.upper().strip("():.") in HEADER_KEYWORDS for t in tokens[:3]):
+            continue
+
+        if _is_junk_line(line):
             continue
 
         idx_val = None
@@ -335,11 +482,36 @@ def parse_lab_lines(text: str) -> list[dict]:
         if not name:
             continue
 
+        # nomi troppo lunghi non sono nomi di esami (frasi, note legali...)
+        if len(name.split()) > MAX_NAME_TOKENS:
+            continue
+
         value_raw = tokens[idx_val]
         rest = tokens[idx_val + 1 :]
         unit, range_str = extract_unit_and_range(rest)
 
         value_num, value_text = parse_value(value_raw)
+
+        # scarta valori numericamente implausibili (date, telefoni, CAP):
+        # se il primo token numerico non e' plausibile, cerca il successivo
+        if value_num is not None and not _value_is_plausible(value_num):
+            first_bad = idx_val
+            idx_val = None
+            for j in range(first_bad + 1, len(tokens)):
+                if is_value_token(tokens[j]):
+                    n2, _ = parse_value(tokens[j])
+                    if n2 is None or _value_is_plausible(n2):
+                        idx_val = j
+                        break
+            if idx_val is None:
+                continue
+            name = " ".join(tokens[:idx_val]).strip()
+            if not name or len(name.split()) > MAX_NAME_TOKENS:
+                continue
+            value_raw = tokens[idx_val]
+            rest = tokens[idx_val + 1 :]
+            unit, range_str = extract_unit_and_range(rest)
+            value_num, value_text = parse_value(value_raw)
         rmin, rmax, rtext = parse_reference(range_str)
         code, display, conf = normalize_exam_name(name)
         flag = compute_flag(value_num, rmin, rmax)
@@ -399,6 +571,8 @@ def extract_from_document(db: Session, document: Document) -> list[LabTest]:
     text = ""
     parsed: list[dict] = []
     source = "none"
+    ocr_engine = None
+    parser_version = PARSER_VERSION
 
     if mime == "application/pdf":
         text = extract_text_from_pdf(path)
@@ -411,7 +585,7 @@ def extract_from_document(db: Session, document: Document) -> list[LabTest]:
                 "Nessun valore parseato dal testo PDF del documento %s, provo OCR.",
                 document.id,
             )
-            ocr_text = extract_text_from_pdf_with_ocr(path)
+            ocr_text, ocr_engine = ocr_pdf_pages_detailed(path)
             if ocr_text and ocr_text.strip():
                 text = f"{text}\n{ocr_text}".strip()
                 parsed = parse_lab_lines(text)
@@ -420,7 +594,7 @@ def extract_from_document(db: Session, document: Document) -> list[LabTest]:
                 source = "pdf-none"
 
     elif is_supported_image_mime(mime):
-        text = extract_text_from_image(path)
+        text, ocr_engine = ocr_image_detailed(path)
         parsed = parse_lab_lines(text)
         source = "image-ocr" if parsed else "image-none"
 
@@ -429,6 +603,24 @@ def extract_from_document(db: Session, document: Document) -> list[LabTest]:
             "Estrazione supportata solo per PDF e immagini JPEG/PNG in questa versione. "
             "HEIC/TIFF in arrivo."
         )
+
+    # Sprint 6.3: se abilitato, l'SLM locale (Ollama) interpreta il referto e
+    # produce SOLO veri esami (niente indirizzi/footer). Il risultato vince sul
+    # parser euristico quando raggiunge la soglia minima di item; altrimenti
+    # (o in caso di errore AI) si resta sul parsing classico.
+    heuristic_count = len(parsed)
+    ai_result = _try_ai_extraction(path, mime, text)
+    if ai_result is not None:
+        ai_parsed, ai_source = ai_result
+        if len(ai_parsed) >= settings.lab_extract_min_items or heuristic_count < settings.lab_extract_min_items:
+            parsed, source, parser_version = ai_parsed, ai_source, PARSER_VERSION_AI
+            logger.info(
+                "Documento %s: uso estrazione AI (%s), %d valori vs %d euristici.",
+                document.id,
+                ai_source,
+                len(ai_parsed),
+                heuristic_count,
+            )
 
     db.query(LabTest).filter(
         LabTest.document_id == document.id,
@@ -462,8 +654,10 @@ def extract_from_document(db: Session, document: Document) -> list[LabTest]:
     document.processing_status = "completed" if created else "pending"
     document.metadata_json = {
         **(document.metadata_json or {}),
-        "parser_version": PARSER_VERSION,
+        "parser_version": parser_version,
         "extraction_source": source,
+        "ocr_engine": ocr_engine,
+        "lab_ai_model": settings.lab_extract_model or settings.ocr_ollama_model if settings.lab_extract_enabled and source.startswith("ai-") else None,
         "extracted_count": len(created),
         "text_chars": len(text or ""),
         "extracted_at_note": "draft bozze, conferma in Step 2",

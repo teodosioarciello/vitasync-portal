@@ -59,6 +59,21 @@ class Settings(BaseSettings):
     ai_timeout_seconds: int = 30
     ai_max_prompt_chars: int = 12000
 
+    # Sprint OCR - backend di riconoscimento testo su immagini/PDF scansionati.
+    # opzione A (default, nessuna GPU richiesta): tesseract locale;
+    # opzione B: VLM via Ollama (es. qwen2.5vl:3b, minicpm-v, gemma3), sempre locale.
+    ocr_backend: str = "tesseract"  # "tesseract" | "ollama" | "hybrid"
+    ocr_ollama_base_url: str = "http://ollama:11434"
+    ocr_ollama_model: str = "qwen2.5vl:3b"
+    ocr_ollama_timeout_seconds: int = 300
+    ocr_fallback_to_tesseract: bool = True
+
+    # Sprint 6.3 - estrazione valori esami con SLM locale via Ollama (/api/chat, JSON).
+    # lab_extract_enabled=false riproduce il comportamento solo-parser-euristico.
+    lab_extract_enabled: bool = False
+    lab_extract_model: str = ""  # vuoto => usa ocr_ollama_model
+    lab_extract_min_items: int = 2  # sotto questa soglia il parser euristico vince
+
     registration_mode: str = "open"
     require_invite_code: bool = False
     invite_code: str | None = None
