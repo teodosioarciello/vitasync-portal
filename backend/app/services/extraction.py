@@ -11,6 +11,8 @@ from app.services.ocr import (
     extract_text_from_image,
     extract_text_from_pdf_with_ocr,
     is_supported_image_mime,
+    ocr_image_detailed,
+    ocr_pdf_pages_detailed,
 )
 
 logger = logging.getLogger(__name__)
@@ -399,6 +401,7 @@ def extract_from_document(db: Session, document: Document) -> list[LabTest]:
     text = ""
     parsed: list[dict] = []
     source = "none"
+    ocr_engine = None
 
     if mime == "application/pdf":
         text = extract_text_from_pdf(path)
@@ -411,7 +414,7 @@ def extract_from_document(db: Session, document: Document) -> list[LabTest]:
                 "Nessun valore parseato dal testo PDF del documento %s, provo OCR.",
                 document.id,
             )
-            ocr_text = extract_text_from_pdf_with_ocr(path)
+            ocr_text, ocr_engine = ocr_pdf_pages_detailed(path)
             if ocr_text and ocr_text.strip():
                 text = f"{text}\n{ocr_text}".strip()
                 parsed = parse_lab_lines(text)
@@ -420,7 +423,7 @@ def extract_from_document(db: Session, document: Document) -> list[LabTest]:
                 source = "pdf-none"
 
     elif is_supported_image_mime(mime):
-        text = extract_text_from_image(path)
+        text, ocr_engine = ocr_image_detailed(path)
         parsed = parse_lab_lines(text)
         source = "image-ocr" if parsed else "image-none"
 
@@ -464,6 +467,7 @@ def extract_from_document(db: Session, document: Document) -> list[LabTest]:
         **(document.metadata_json or {}),
         "parser_version": PARSER_VERSION,
         "extraction_source": source,
+        "ocr_engine": ocr_engine,
         "extracted_count": len(created),
         "text_chars": len(text or ""),
         "extracted_at_note": "draft bozze, conferma in Step 2",

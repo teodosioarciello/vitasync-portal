@@ -1,29 +1,3 @@
-﻿# Python
 __pycache__/
-*.py[cod]
-*.egg-info/
-.venv/
-venv/
+*.pyc
 .env
-
-# Node
-node_modules/
-.next/
-out/
-dist/
-
-# Docker / local data
-pgdata/
-data/
-
-# OS
-.DS_Store
-Thumbs.db
-
-# IDE
-.vscode/
-.idea/
-
-*.bak
-
-backups/
